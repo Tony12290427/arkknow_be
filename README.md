@@ -31,6 +31,19 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 - Elasticsearch-based full-text search
 - RAG knowledge Q&A with DeepSeek AI
 
+## API Endpoints
+
+### Authentication (`/api/v1/auth`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/send-code` | No | Send verification code (email/phone) |
+| POST | `/register` | No | Register with code |
+| POST | `/login` | No | Login with password or code |
+| POST | `/token/refresh` | No | Refresh access token |
+| POST | `/logout` | Yes | Logout and revoke refresh token |
+| GET | `/me` | Yes | Get current user info |
+
 ## Quick Start
 
 ```bash
