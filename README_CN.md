@@ -66,17 +66,35 @@ mvn spring-boot:run
 - 版本前缀：`/api/v1`
 - 鉴权方式：`Authorization: Bearer <access_token>`
 
+## 开发进度
+
+- [x] 发送验证码 (`POST /api/v1/auth/send-code`)
+- [x] 用户注册 + JWT 双令牌 (`POST /api/v1/auth/register`)
+- [x] 查询当前用户 (`GET /api/v1/auth/me`)
+- [ ] 登录 (`POST /api/v1/auth/login`)
+- [ ] 令牌刷新与登出
+- [ ] 用户资料管理
+- [ ] 知识帖文系统
+- [ ] 用户关系（关注/取关）
+- [ ] 点赞/收藏计数系统
+- [ ] Feed 缓存
+- [ ] 搜索（Elasticsearch）
+- [ ] RAG AI 问答
+
 ## 项目结构
 
 ```
 com.arknow/
 ├── auth/           # 认证（JWT、验证码、登录注册）
-├── profile/        # 用户资料管理
-├── knowpost/       # 知识帖文系统
-├── counter/        # 计数与分析
-├── relation/       # 用户关系（关注/取关）
-├── storage/        # 对象存储（OSS）
-├── llm/            # AI/LLM 集成
-├── cache/          # 缓存基础设施
-└── config/         # 配置管理
+│   ├── api/        # Controller + DTO
+│   ├── audit/      # 登录审计日志
+│   ├── config/     # 认证配置
+│   ├── model/      # 模型
+│   ├── service/    # AuthService
+│   ├── token/      # JwtService、RefreshTokenStore
+│   ├── util/       # 工具
+│   └── verification/ # 验证码生成/存储/发送
+├── common/         # 全局异常处理、错误码
+├── config/         # Spring Security 配置
+└── user/           # 用户领域、Mapper、Service
 ```
