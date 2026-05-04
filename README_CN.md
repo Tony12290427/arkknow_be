@@ -73,7 +73,7 @@ mvn spring-boot:run
 - [x] 查询当前用户 (`GET /api/v1/auth/me`)
 - [x] 登录 (`POST /api/v1/auth/login`)
 - [x] 令牌刷新与登出
-- [ ] 用户资料管理
+- [x] 用户资料管理
 - [ ] 知识帖文系统
 - [ ] 用户关系（关注/取关）
 - [ ] 点赞/收藏计数系统

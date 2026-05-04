@@ -31,4 +31,21 @@
         UPDATE users SET password_hash = #{passwordHash}, updated_at = NOW() WHERE id = #{id}
     </update>
 
+    <update id="updateProfile">
+        UPDATE users SET
+            nickname = #{nickname},
+            bio = #{bio},
+            gender = #{gender},
+            birthday = #{birthday},
+            zg_id = #{zgId},
+            school = #{school},
+            tags_json = #{tagsJson},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAvatar">
+        UPDATE users SET avatar = #{avatar}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
 </mapper>

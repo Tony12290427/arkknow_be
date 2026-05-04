@@ -31,7 +31,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/send-code", "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/token/refresh", "/api/v1/auth/logout").permitAll()
-                .requestMatchers("/api/v1/auth/me").authenticated()
+                .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**").authenticated()
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2

@@ -15,4 +15,6 @@ public interface UserMapper {
     Optional<User> findById(@Param("id") long id);
     void insert(User user);
     int updatePassword(User user);
+    int updateProfile(User user);
+    int updateAvatar(@Param("id") long id, @Param("avatar") String avatar);
 }

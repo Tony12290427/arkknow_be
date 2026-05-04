@@ -73,7 +73,7 @@ mvn spring-boot:run
 - [x] Current user info (`GET /api/v1/auth/me`)
 - [x] Login (`POST /api/v1/auth/login`)
 - [x] Token refresh & logout
-- [ ] User profile management
+- [x] User profile management
 - [ ] Knowledge post system
 - [ ] User relations (follow/unfollow)
 - [ ] Like/favorite counter system
