@@ -31,7 +31,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/send-code", "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/token/refresh", "/api/v1/auth/logout").permitAll()
-                .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**").authenticated()
+                .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**", "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish", "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine", "/api/v1/storage/presign").authenticated()
+                .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*").permitAll()
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
