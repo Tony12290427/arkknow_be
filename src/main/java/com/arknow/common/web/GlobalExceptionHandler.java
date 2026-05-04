@@ -14,15 +14,29 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Translates exceptions into a unified JSON structure for all controllers.
+ * <p>
+ * Every error response follows the shape:
+ * <pre>{@code {"code": "...", "message": "...", "path": "...", "timestamp": "..."}}</pre>
+ * This guarantees that API consumers always get a predictable error format.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * Handles business rule violations with domain-specific error codes.
+     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex, HttpServletRequest request) {
         return buildResponse(ex.getCode().name(), ex.getMessage(), request, httpStatus(ex));
     }
 
+    /**
+     * Handles {@code @Valid} / Bean Validation failures (e.g. missing required fields).
+     * Combines all field errors into a single semicolon-delimited message.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String msg = ex.getBindingResult().getFieldErrors().stream()
@@ -32,6 +46,10 @@ public class GlobalExceptionHandler {
         return buildResponse("BAD_REQUEST", msg, request, HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Catch-all for unexpected exceptions. Logs the stack trace and returns a generic message
+     * so internal details are never leaked to clients.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnknown(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception", ex);
@@ -47,6 +65,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, status);
     }
 
+    /**
+     * Maps each {@link ErrorCode} to the most appropriate HTTP status.
+     * <p>
+     * Most business errors are 400 (client mistake). Only credential/refresh-token failures
+     * return 401 to trigger client-side re-authentication.
+     */
     private HttpStatus httpStatus(BusinessException ex) {
         return switch (ex.getCode()) {
             case BAD_REQUEST -> HttpStatus.BAD_REQUEST;

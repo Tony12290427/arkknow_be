@@ -19,6 +19,16 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+/**
+ * JWT token issuance, verification, and claim extraction.
+ * <p>
+ * Uses RS256 (RSA + SHA-256) asymmetric signing so that other services can verify tokens
+ * using only the public key, without needing the private key. This is essential for a
+ * distributed architecture where multiple services independently validate access tokens.
+ * <p>
+ * Access tokens carry user identity claims (uid, nickname) and expire quickly (15 min).
+ * Refresh tokens carry minimal claims and are tracked in a Redis whitelist for revocation.
+ */
 @Service
 public class JwtService {
     private static final String CLAIM_TOKEN_TYPE = "token_type";
@@ -26,6 +36,7 @@ public class JwtService {
 
     private final AuthProperties properties;
     private final Clock clock = Clock.systemUTC();
+    /** Loaded from PEM resource at startup via {@link #initKeys()}. */
     private RSAPrivateKey privateKey;
     private RSAPublicKey publicKey;
 
@@ -33,12 +44,19 @@ public class JwtService {
         this.properties = properties;
     }
 
+    /** Parses PEM-encoded key files into Java RSA key objects. Fails fast if keys are missing. */
     @PostConstruct
     void initKeys() {
         this.privateKey = PemUtils.loadPrivateKey(properties.getJwt().getPrivateKey());
         this.publicKey = PemUtils.loadPublicKey(properties.getJwt().getPublicKey());
     }
 
+    /**
+     * Issues a pair of access and refresh tokens for a user.
+     * <p>
+     * The refresh token's JWT ID is stored in Redis for whitelist-based revocation.
+     * The access token is fully stateless — its validity depends only on the signature and expiry.
+     */
     public TokenPair issueTokenPair(User user) {
         String refreshTokenId = UUID.randomUUID().toString();
         Instant issuedAt = Instant.now(clock);
@@ -50,6 +68,12 @@ public class JwtService {
         return new TokenPair(accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, refreshTokenId);
     }
 
+    /**
+     * Decodes and verifies a JWT string.
+     *
+     * @return the parsed signed JWT
+     * @throws IllegalArgumentException if the token is malformed or signature is invalid
+     */
     public SignedJWT decode(String token) {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
@@ -64,6 +88,7 @@ public class JwtService {
         }
     }
 
+    /** Extracts the {@code uid} claim as a long. */
     public long extractUserId(SignedJWT jwt) {
         try {
             Object claim = jwt.getJWTClaimsSet().getClaim(CLAIM_USER_ID);
@@ -75,6 +100,7 @@ public class JwtService {
         }
     }
 
+    /** Extracts the {@code token_type} claim ("access" or "refresh"). */
     public String extractTokenType(SignedJWT jwt) {
         try {
             Object claim = jwt.getJWTClaimsSet().getClaim(CLAIM_TOKEN_TYPE);
@@ -84,6 +110,7 @@ public class JwtService {
         }
     }
 
+    /** Extracts the JWT ID ({@code jti}) claim. */
     public String extractTokenId(SignedJWT jwt) {
         try {
             return jwt.getJWTClaimsSet().getJWTID();
@@ -92,6 +119,7 @@ public class JwtService {
         }
     }
 
+    /** Encodes an access token with full user claims for convenience in downstream services. */
     private String encodeToken(User user, Instant issuedAt, Instant expiresAt, String tokenType, String tokenId) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -110,6 +138,7 @@ public class JwtService {
         }
     }
 
+    /** Encodes a refresh token with minimal claims to keep the payload small. */
     private String encodeRefreshToken(User user, Instant issuedAt, Instant expiresAt, String tokenId) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -127,6 +156,7 @@ public class JwtService {
         }
     }
 
+    /** Signs a claims set with RS256 and returns the serialized JWT string. */
     private String sign(JWTClaimsSet claims) {
         try {
             SignedJWT jwt = new SignedJWT(

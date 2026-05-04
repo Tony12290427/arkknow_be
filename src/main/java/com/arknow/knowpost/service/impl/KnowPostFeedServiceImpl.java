@@ -11,6 +11,13 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Public feed service.
+ * <p>
+ * Fetches published, publicly-visible posts ordered by top priority then publish time.
+ * The simple query-based approach is sufficient for MVP scale; a three-tier
+ * caching strategy (Caffeine + Redis page + Redis fragment) is added in later phases.
+ */
 @Service
 public class KnowPostFeedServiceImpl implements KnowPostFeedService {
     private final KnowPostMapper mapper;
@@ -49,6 +56,7 @@ public class KnowPostFeedServiceImpl implements KnowPostFeedService {
                 liked, faved, r.getIsTop());
     }
 
+    /** Parses a JSON array string; returns an empty list for null/empty input. */
     private static List<String> parseArray(String json) {
         if (json == null || json.isBlank() || "[]".equals(json)) return List.of();
         if (json.startsWith("[")) {

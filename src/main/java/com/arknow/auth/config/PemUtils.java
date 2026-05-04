@@ -11,9 +11,17 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
+/**
+ * Utility for loading PEM-encoded RSA keys from classpath resources.
+ * <p>
+ * PEM is the standard format for storing cryptographic keys. This utility strips
+ * the header/footer lines, decodes the Base64 body, and parses the DER bytes into
+ * Java RSA key objects used by the Nimbus JOSE library for JWT signing/verification.
+ */
 public final class PemUtils {
     private PemUtils() {}
 
+    /** Loads an X.509 PEM public key. */
     public static RSAPublicKey loadPublicKey(Resource resource) {
         try {
             String pem = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
@@ -27,6 +35,7 @@ public final class PemUtils {
         }
     }
 
+    /** Loads a PKCS#8 PEM private key. */
     public static RSAPrivateKey loadPrivateKey(Resource resource) {
         try {
             String pem = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);

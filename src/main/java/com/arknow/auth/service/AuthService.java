@@ -1,14 +1,6 @@
 package com.arknow.auth.service;
 
-import com.arknow.auth.api.dto.AuthResponse;
-import com.arknow.auth.api.dto.AuthUserResponse;
-import com.arknow.auth.api.dto.LoginRequest;
-import com.arknow.auth.api.dto.LogoutRequest;
-import com.arknow.auth.api.dto.RegisterRequest;
-import com.arknow.auth.api.dto.SendCodeRequest;
-import com.arknow.auth.api.dto.SendCodeResponse;
-import com.arknow.auth.api.dto.TokenRefreshRequest;
-import com.arknow.auth.api.dto.TokenResponse;
+import com.arknow.auth.api.dto.*;
 import com.arknow.auth.audit.LoginLogService;
 import com.arknow.auth.config.AuthProperties;
 import com.arknow.auth.model.ClientInfo;
@@ -17,11 +9,7 @@ import com.arknow.auth.token.JwtService;
 import com.arknow.auth.token.RefreshTokenStore;
 import com.arknow.auth.token.TokenPair;
 import com.arknow.auth.util.IdentifierValidator;
-import com.arknow.auth.verification.SendCodeResult;
-import com.arknow.auth.verification.VerificationCheckResult;
-import com.arknow.auth.verification.VerificationCodeStatus;
-import com.arknow.auth.verification.VerificationScene;
-import com.arknow.auth.verification.VerificationService;
+import com.arknow.auth.verification.*;
 import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
 import com.arknow.user.domain.User;
@@ -33,11 +21,19 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
+/**
+ * Core authentication orchestration service.
+ * <p>
+ * Coordinates the full lifecycle of auth operations: send-code, register, login,
+ * refresh, logout, and current-user lookup. This service acts as a facade:
+ * it delegates to specialized services ({@link VerificationService}, {@link JwtService},
+ * {@link RefreshTokenStore}, etc.) while owning the process flow and business rules.
+ * <p>
+ * Each public method is self-contained: if {@code register} is called without first
+ * calling {@code sendCode}, it still validates independently. No method trusts the caller.
+ */
 @Service
 public class AuthService {
     private final UserService userService;
@@ -63,6 +59,19 @@ public class AuthService {
 
     // ==================== sendCode ====================
 
+    /**
+     * Sends a verification code after validating the identifier and checking existence
+     * against the requested scene's rules.
+     * <p>
+     * Scene rules:
+     * <ul>
+     *   <li>REGISTER — identifier must NOT exist</li>
+     *   <li>LOGIN / RESET_PASSWORD — identifier MUST exist</li>
+     * </ul>
+     * This prevents attackers from probing the system for registered accounts:
+     * we return a clear error, prioritizing user experience over information hiding
+     * (which is acceptable for a community platform, though not for banking systems).
+     */
     public SendCodeResponse sendCode(SendCodeRequest request) {
         validateIdentifier(request.identifierType(), request.identifier());
         String normalized = normalizeIdentifier(request.identifierType(), request.identifier());
@@ -79,6 +88,20 @@ public class AuthService {
 
     // ==================== register ====================
 
+    /**
+     * Registers a new user, validates the verification code, and returns signed tokens.
+     * <p>
+     * Steps:
+     * <ol>
+     *   <li>Check terms agreement</li>
+     *   <li>Validate identifier format and uniqueness</li>
+     *   <li>Verify the code (consumes it on success)</li>
+     *   <li>Build user with Builder pattern and optional BCrypt password</li>
+     *   <li>Persist, issue tokens, store refresh token whitelist, record audit</li>
+     * </ol>
+     * The password is optional: users can register with verification code only
+     * and set a password later. BCrypt with cost=12 makes offline attacks impractical.
+     */
     public AuthResponse register(RegisterRequest request, ClientInfo clientInfo) {
         if (!request.agreeTerms()) {
             throw new BusinessException(ErrorCode.TERMS_NOT_ACCEPTED);
@@ -112,16 +135,18 @@ public class AuthService {
         return new AuthResponse(mapUser(user), mapToken(tokenPair));
     }
 
-    // ==================== me ====================
-
-    public AuthUserResponse me(long userId) {
-        User user = findUserById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
-        return mapUser(user);
-    }
-
     // ==================== login ====================
 
+    /**
+     * Authenticates a user via password or verification code.
+     * <p>
+     * Dual-channel design:
+     * <ul>
+     *   <li>PASSWORD: verifies BCrypt hash against stored password</li>
+     *   <li>CODE: verifies a one-time verification code sent to the identifier</li>
+     * </ul>
+     * If neither is provided, throws BAD_REQUEST. Failed login attempts are audited.
+     */
     public AuthResponse login(LoginRequest request, ClientInfo clientInfo) {
         validateIdentifier(request.identifierType(), request.identifier());
         String identifier = normalizeIdentifier(request.identifierType(), request.identifier());
@@ -152,6 +177,13 @@ public class AuthService {
 
     // ==================== refresh ====================
 
+    /**
+     * Rotates a refresh token: issues a new token pair, revokes the old refresh token.
+     * <p>
+     * Token rotation mitigates refresh token theft: if a stolen refresh token is used,
+     * the legitimate user's next refresh attempt will fail (because the old token was revoked),
+     * alerting the system to potential compromise.
+     */
     public TokenResponse refresh(TokenRefreshRequest request) {
         SignedJWT jwt = decodeRefreshToken(request.refreshToken());
 
@@ -177,6 +209,13 @@ public class AuthService {
 
     // ==================== logout ====================
 
+    /**
+     * Revokes a refresh token so it can no longer be used to obtain new access tokens.
+     * <p>
+     * The access token is NOT revoked — it remains valid until its short TTL expires.
+     * This is by design: access tokens are stateless and cannot be individually revoked
+     * without introducing a server-side check on every request (which would defeat their purpose).
+     */
     public void logout(LogoutRequest request) {
         if (!StringUtils.hasText(request.refreshToken())) return;
         decodeRefreshTokenSafely(request.refreshToken()).ifPresent(jwt -> {
@@ -188,8 +227,18 @@ public class AuthService {
         });
     }
 
+    // ==================== me ====================
+
+    /** Returns the current user's profile based on the authenticated JWT. */
+    public AuthUserResponse me(long userId) {
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        return mapUser(user);
+    }
+
     // ==================== helpers ====================
 
+    /** Maps verification statuses to appropriate business exceptions. */
     private void ensureVerificationSuccess(VerificationCheckResult result) {
         if (result.isSuccess()) return;
         VerificationCodeStatus status = result.status();
@@ -205,6 +254,7 @@ public class AuthService {
         throw new BusinessException(ErrorCode.BAD_REQUEST, "验证码校验失败");
     }
 
+    /** Validates phone (11 digits starting with 1) or email (RFC-like pattern) format. */
     private void validateIdentifier(IdentifierType type, String identifier) {
         if (type == IdentifierType.PHONE && !IdentifierValidator.isValidPhone(identifier)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "手机号格式错误");
@@ -214,6 +264,7 @@ public class AuthService {
         }
     }
 
+    /** Enforces minimum length and mixed-character requirements. */
     private void validatePassword(String password) {
         if (!StringUtils.hasText(password)) {
             throw new BusinessException(ErrorCode.PASSWORD_POLICY_VIOLATION, "密码不能为空");
@@ -229,6 +280,13 @@ public class AuthService {
         }
     }
 
+    /**
+     * Normalizes identifiers for case-insensitive comparison.
+     * <p>
+     * Email addresses are trimmed and lowercased because RFC 5321 specifies that the
+     * local part MAY be case-sensitive, but in practice all major providers treat it
+     * case-insensitively. We follow the pragmatic approach.
+     */
     private String normalizeIdentifier(IdentifierType type, String identifier) {
         return switch (type) {
             case PHONE -> identifier.trim();
@@ -247,6 +305,14 @@ public class AuthService {
         return userService.findById(userId);
     }
 
+    private Optional<User> findUserByIdentifier(IdentifierType type, String identifier) {
+        return switch (type) {
+            case PHONE -> userService.findByPhone(identifier);
+            case EMAIL -> userService.findByEmail(identifier);
+        };
+    }
+
+    /** Stores the refresh token JWT ID in Redis with a TTL matching the token's expiry. */
     private void storeRefreshToken(Long userId, TokenPair tokenPair) {
         Duration ttl = Duration.between(Instant.now(), tokenPair.refreshTokenExpiresAt());
         if (ttl.isNegative()) ttl = Duration.ZERO;
@@ -269,13 +335,7 @@ public class AuthService {
                 tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
     }
 
-    private Optional<User> findUserByIdentifier(IdentifierType type, String identifier) {
-        return switch (type) {
-            case PHONE -> userService.findByPhone(identifier);
-            case EMAIL -> userService.findByEmail(identifier);
-        };
-    }
-
+    /** Decodes a refresh token; throws on any failure (malformed, expired, bad signature). */
     private SignedJWT decodeRefreshToken(String refreshToken) {
         try {
             return jwtService.decode(refreshToken);
@@ -284,6 +344,7 @@ public class AuthService {
         }
     }
 
+    /** Decodes a refresh token without throwing — used in logout where failure is non-fatal. */
     private Optional<SignedJWT> decodeRefreshTokenSafely(String refreshToken) {
         try {
             return Optional.of(jwtService.decode(refreshToken));
