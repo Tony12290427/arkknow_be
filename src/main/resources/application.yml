@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: arkknow
+  datasource:
+    url: jdbc:mysql://localhost:3306/arkknow?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.vectorstore.elasticsearch.ElasticsearchVectorStoreAutoConfiguration
+  ai:
+    openai:
+      api-key: fake-dev-key
+    deepseek:
+      api-key: fake-dev-key
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.arknow
+
+auth:
+  jwt:
+    issuer: arkknow
+    key-id: arkknow-key
+    private-key: classpath:keys/private.pem
+    public-key: classpath:keys/public.pem
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+  verification:
+    code-length: 6
+    ttl: 5m
+    max-attempts: 5
+    send-interval: 60s
+    daily-limit: 10
+  password:
+    bcrypt-strength: 12
+    min-length: 8
+
+canal:
+  enabled: false
+  host: localhost
+  port: 11111
+  destination: example
+  username: ""
+  password: ""
+  filter: "outbox\\..*"
+  batchSize: 1000
+  intervalMs: 500
