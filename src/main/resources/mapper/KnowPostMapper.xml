@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.arknow.knowpost.mapper.KnowPostMapper">
+
+    <insert id="insert">
+        INSERT INTO know_posts (id, tag_id, tags, title, description, content_url,
+            content_object_key, content_etag, content_size, content_sha256,
+            creator_id, is_top, type, visible, img_urls, video_url, status)
+        VALUES (#{id}, #{tagId}, #{tags}, #{title}, #{description}, #{contentUrl},
+            #{contentObjectKey}, #{contentEtag}, #{contentSize}, #{contentSha256},
+            #{creatorId}, #{isTop}, #{type}, #{visible}, #{imgUrls}, #{videoUrl}, #{status})
+    </insert>
+
+    <update id="update">
+        UPDATE know_posts SET
+            tag_id = #{tagId}, tags = #{tags}, title = #{title},
+            description = #{description}, img_urls = #{imgUrls},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="softDelete">
+        UPDATE know_posts SET status = 'deleted', update_time = NOW()
+        WHERE id = #{id} AND creator_id = #{creatorId}
+    </update>
+
+    <select id="findById" resultType="com.arknow.knowpost.model.KnowPost">
+        SELECT * FROM know_posts WHERE id = #{id}
+    </select>
+
+    <select id="findDetailById" resultType="com.arknow.knowpost.model.KnowPostDetailRow">
+        SELECT
+            kp.id, kp.title, kp.description, kp.content_url,
+            kp.img_urls, kp.tags, kp.is_top, kp.visible, kp.type,
+            kp.status, kp.publish_time, kp.content_object_key,
+            kp.content_etag, kp.content_size, kp.content_sha256,
+            u.avatar AS author_avatar, u.nickname AS author_nickname,
+            u.tags_json AS author_tag_json,
+            0 AS like_count, 0 AS favorite_count
+        FROM know_posts kp
+        JOIN users u ON kp.creator_id = u.id
+        WHERE kp.id = #{id}
+    </select>
+
+    <select id="listFeedPublic" resultType="com.arknow.knowpost.model.KnowPostFeedRow">
+        SELECT
+            kp.id, kp.title, kp.description, kp.img_urls,
+            kp.tags, kp.is_top, kp.visible, kp.type,
+            u.avatar AS author_avatar, u.nickname AS author_nickname,
+            u.tags_json AS author_tag_json,
+            0 AS like_count, 0 AS favorite_count
+        FROM know_posts kp
+        JOIN users u ON kp.creator_id = u.id
+        WHERE kp.status = 'published' AND kp.visible = 'public'
+        ORDER BY kp.is_top DESC, kp.publish_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="listFeedByCreator" resultType="com.arknow.knowpost.model.KnowPostFeedRow">
+        SELECT
+            kp.id, kp.title, kp.description, kp.img_urls,
+            kp.tags, kp.is_top, kp.visible, kp.type,
+            u.avatar AS author_avatar, u.nickname AS author_nickname,
+            u.tags_json AS author_tag_json,
+            0 AS like_count, 0 AS favorite_count
+        FROM know_posts kp
+        JOIN users u ON kp.creator_id = u.id
+        WHERE kp.creator_id = #{creatorId} AND kp.status != 'deleted'
+        ORDER BY kp.create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <update id="updateTop">
+        UPDATE know_posts SET is_top = #{isTop}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateVisibility">
+        UPDATE know_posts SET visible = #{visible}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="publish">
+        UPDATE know_posts SET status = 'published', publish_time = #{publishTime}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateContentConfirm">
+        UPDATE know_posts SET
+            content_object_key = #{objectKey}, content_etag = #{etag},
+            content_size = #{size}, content_sha256 = #{sha256},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="listMyPublishedIds" resultType="long">
+        SELECT id FROM know_posts WHERE creator_id = #{creatorId} AND status = 'published'
+    </select>
+
+</mapper>

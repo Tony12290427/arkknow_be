@@ -51,6 +51,12 @@ auth:
     bcrypt-strength: 12
     min-length: 8
 
+oss:
+  endpoint: oss-cn-hangzhou.aliyuncs.com
+  access-key-id: fake-dev-key
+  access-key-secret: fake-dev-secret
+  bucket-name: arkknow-dev
+
 canal:
   enabled: false
   host: localhost
