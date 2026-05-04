@@ -2,9 +2,12 @@ package com.arknow.auth.service;
 
 import com.arknow.auth.api.dto.AuthResponse;
 import com.arknow.auth.api.dto.AuthUserResponse;
+import com.arknow.auth.api.dto.LoginRequest;
+import com.arknow.auth.api.dto.LogoutRequest;
 import com.arknow.auth.api.dto.RegisterRequest;
 import com.arknow.auth.api.dto.SendCodeRequest;
 import com.arknow.auth.api.dto.SendCodeResponse;
+import com.arknow.auth.api.dto.TokenRefreshRequest;
 import com.arknow.auth.api.dto.TokenResponse;
 import com.arknow.auth.audit.LoginLogService;
 import com.arknow.auth.config.AuthProperties;
@@ -23,6 +26,7 @@ import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
 import com.arknow.user.domain.User;
 import com.arknow.user.service.UserService;
+import com.nimbusds.jwt.SignedJWT;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -30,6 +34,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -115,6 +120,74 @@ public class AuthService {
         return mapUser(user);
     }
 
+    // ==================== login ====================
+
+    public AuthResponse login(LoginRequest request, ClientInfo clientInfo) {
+        validateIdentifier(request.identifierType(), request.identifier());
+        String identifier = normalizeIdentifier(request.identifierType(), request.identifier());
+        User user = findUserByIdentifier(request.identifierType(), identifier)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+
+        String channel;
+        if (StringUtils.hasText(request.password())) {
+            channel = "PASSWORD";
+            boolean hasHash = StringUtils.hasText(user.getPasswordHash());
+            boolean matches = hasHash && passwordEncoder.matches(request.password().trim(), user.getPasswordHash());
+            if (!matches) {
+                loginLogService.record(user.getId(), identifier, channel, clientInfo.ip(), clientInfo.userAgent(), "FAILED");
+                throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+            }
+        } else if (StringUtils.hasText(request.code())) {
+            channel = "CODE";
+            ensureVerificationSuccess(verificationService.verify(VerificationScene.LOGIN, identifier, request.code()));
+        } else {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "请提供验证码或密码");
+        }
+
+        TokenPair tokenPair = jwtService.issueTokenPair(user);
+        storeRefreshToken(user.getId(), tokenPair);
+        loginLogService.record(user.getId(), identifier, channel, clientInfo.ip(), clientInfo.userAgent(), "SUCCESS");
+        return new AuthResponse(mapUser(user), mapToken(tokenPair));
+    }
+
+    // ==================== refresh ====================
+
+    public TokenResponse refresh(TokenRefreshRequest request) {
+        SignedJWT jwt = decodeRefreshToken(request.refreshToken());
+
+        if (!Objects.equals("refresh", jwtService.extractTokenType(jwt))) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        long userId = jwtService.extractUserId(jwt);
+        String tokenId = jwtService.extractTokenId(jwt);
+
+        if (!refreshTokenStore.isTokenValid(userId, tokenId)) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        TokenPair tokenPair = jwtService.issueTokenPair(user);
+        refreshTokenStore.revokeToken(userId, tokenId);
+        storeRefreshToken(userId, tokenPair);
+
+        return mapToken(tokenPair);
+    }
+
+    // ==================== logout ====================
+
+    public void logout(LogoutRequest request) {
+        if (!StringUtils.hasText(request.refreshToken())) return;
+        decodeRefreshTokenSafely(request.refreshToken()).ifPresent(jwt -> {
+            if (Objects.equals("refresh", jwtService.extractTokenType(jwt))) {
+                long userId = jwtService.extractUserId(jwt);
+                String tokenId = jwtService.extractTokenId(jwt);
+                refreshTokenStore.revokeToken(userId, tokenId);
+            }
+        });
+    }
+
     // ==================== helpers ====================
 
     private void ensureVerificationSuccess(VerificationCheckResult result) {
@@ -194,5 +267,28 @@ public class AuthService {
     private TokenResponse mapToken(TokenPair tokenPair) {
         return new TokenResponse(tokenPair.accessToken(), tokenPair.accessTokenExpiresAt(),
                 tokenPair.refreshToken(), tokenPair.refreshTokenExpiresAt());
+    }
+
+    private Optional<User> findUserByIdentifier(IdentifierType type, String identifier) {
+        return switch (type) {
+            case PHONE -> userService.findByPhone(identifier);
+            case EMAIL -> userService.findByEmail(identifier);
+        };
+    }
+
+    private SignedJWT decodeRefreshToken(String refreshToken) {
+        try {
+            return jwtService.decode(refreshToken);
+        } catch (Exception ex) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+    }
+
+    private Optional<SignedJWT> decodeRefreshTokenSafely(String refreshToken) {
+        try {
+            return Optional.of(jwtService.decode(refreshToken));
+        } catch (Exception ex) {
+            return Optional.empty();
+        }
     }
 }
