@@ -31,6 +31,19 @@
 - Elasticsearch 全文搜索
 - RAG 知识问答（集成 DeepSeek AI）
 
+## API 接口
+
+### 认证 (`/api/v1/auth`)
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| POST | `/send-code` | 否 | 发送验证码（手机号/邮箱） |
+| POST | `/register` | 否 | 验证码注册 |
+| POST | `/login` | 否 | 密码或验证码登录 |
+| POST | `/token/refresh` | 否 | 刷新访问令牌 |
+| POST | `/logout` | 是 | 登出并撤销刷新令牌 |
+| GET | `/me` | 是 | 查询当前用户信息 |
+
 ## 快速开始
 
 ```bash
