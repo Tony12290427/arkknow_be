@@ -10,6 +10,21 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Redis Hash-backed verification code store.
+ * <p>
+ * Each code session is a single Redis Hash key with three fields:
+ * <ul>
+ *   <li>{@code code} — the verification code string</li>
+ *   <li>{@code maxAttempts} — allowed wrong attempts</li>
+ *   <li>{@code attempts} — how many times verification has been tried</li>
+ * </ul>
+ * <p>
+ * Using a Hash instead of three separate String keys keeps the three related values
+ * atomically grouped: they share one TTL, are deleted together, and cannot drift apart.
+ * <p>
+ * Key pattern: {@code auth:code:<scene>:<identifier>}
+ */
 @Component
 public class RedisVerificationCodeStore implements VerificationCodeStore {
     private static final String FIELD_CODE = "code";
@@ -36,6 +51,13 @@ public class RedisVerificationCodeStore implements VerificationCodeStore {
         }
     }
 
+    /**
+     * Verify the submitted code.
+     * <p>
+     * On success the entire key is deleted so the code acts as a one-time token.
+     * When attempts reach the limit, the TTL is extended to 30 minutes as a penalty
+     * to slow down brute-force attacks.
+     */
     @Override
     public VerificationCheckResult verify(String scene, String identifier, String code) {
         String key = buildKey(scene, identifier);
@@ -74,6 +96,7 @@ public class RedisVerificationCodeStore implements VerificationCodeStore {
         return "auth:code:%s:%s".formatted(scene, identifier);
     }
 
+    /** Parses an integer from a Redis string field, falling back to a default on failure. */
     private static int parseInt(String value, int defaultValue) {
         if (value == null) return defaultValue;
         try {

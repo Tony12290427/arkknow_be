@@ -10,6 +10,13 @@ import com.arknow.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+/**
+ * Profile management service.
+ * <p>
+ * Handles read, partial update, and avatar change for user profiles.
+ * PATCH uses null-checking semantics: only non-null fields in the request are applied,
+ * so clients can send just the fields they want to change.
+ */
 @Service
 public class ProfileServiceImpl implements ProfileService {
     private final UserMapper userMapper;
@@ -25,6 +32,12 @@ public class ProfileServiceImpl implements ProfileService {
         return toResponse(user);
     }
 
+    /**
+     * Applies only the non-null fields from the request.
+     * <p>
+     * A field being {@code null} means "don't change it" — this is standard PATCH semantics.
+     * Explicitly setting a field to blank/empty is how you clear it.
+     */
     @Override
     public ProfileResponse updateProfile(long userId, ProfilePatchRequest request) {
         User user = userMapper.findById(userId)

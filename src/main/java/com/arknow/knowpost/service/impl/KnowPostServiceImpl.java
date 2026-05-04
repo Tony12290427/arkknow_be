@@ -15,6 +15,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
+/**
+ * Knowledge post CRUD and lifecycle management.
+ * <p>
+ * Implements a progressive publishing workflow:
+ * <ol>
+ *   <li>Create draft (returns snowflake ID immediately)</li>
+ *   <li>Get OSS presigned URL and upload content client-side</li>
+ *   <li>Confirm content upload with ETag/SHA256 checksums</li>
+ *   <li>Update metadata (title, tags, images)</li>
+ *   <li>Publish (draft → published, sets publish_time)</li>
+ * </ol>
+ * Each step is idempotent — repeating any step has no side effects, allowing clients
+ * to safely retry on network failures.
+ */
 @Service
 public class KnowPostServiceImpl implements KnowPostService {
     private final KnowPostMapper mapper;
@@ -61,6 +75,12 @@ public class KnowPostServiceImpl implements KnowPostService {
         mapper.update(post);
     }
 
+    /**
+     * Transitions a draft to published.
+     * <p>
+     * A dedicated SQL statement is used (not the generic update) to atomically set
+     * both {@code status='published'} and {@code publish_time=NOW()}.
+     */
     @Override
     @Transactional
     public void publish(long postId) {
@@ -82,12 +102,19 @@ public class KnowPostServiceImpl implements KnowPostService {
         mapper.updateVisibility(postId, visible);
     }
 
+    /** Soft-deletes a post by setting status to 'deleted'. The creator must be the owner. */
     @Override
     public void softDelete(long postId, long creatorId) {
         int rows = mapper.softDelete(postId, creatorId);
         if (rows == 0) throw new BusinessException(ErrorCode.BAD_REQUEST, "删除失败");
     }
 
+    /**
+     * Returns full post detail with current-user-specific like/fav state.
+     * <p>
+     * User state (liked, faved) is computed at read time and NOT cached — it belongs
+     * to the individual user, not the public resource.
+     */
     @Override
     public KnowPostDetailResponse getDetail(long postId, Long currentUserId) {
         KnowPostDetailRow row = mapper.findDetailById(postId);
@@ -132,6 +159,7 @@ public class KnowPostServiceImpl implements KnowPostService {
                 liked, faved, r.getIsTop());
     }
 
+    /** Parses a JSON array string into a Java List. Returns empty list for null/empty input. */
     private static List<String> parseArray(String json) {
         if (json == null || json.isBlank() || "[]".equals(json)) return List.of();
         if (json.startsWith("[")) {

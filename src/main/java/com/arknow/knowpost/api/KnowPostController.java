@@ -8,6 +8,16 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Knowledge post REST API controller.
+ * <p>
+ * Exposes the complete post lifecycle: draft creation, content confirmation,
+ * metadata editing, publishing, visibility control, pinning, soft deletion,
+ * public feed browsing, detail views, and personal post listing.
+ * <p>
+ * All mutating endpoints require authentication. Feed and detail are public
+ * but accept an optional Bearer token to compute per-user state (liked/faved).
+ */
 @RestController
 @RequestMapping("/api/v1/knowposts")
 public class KnowPostController {
@@ -67,6 +77,11 @@ public class KnowPostController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Public feed with optional authentication.
+     * When a valid Bearer token is present, each item includes the current user's
+     * liked/faved state. Without a token, these fields are false.
+     */
     @GetMapping("/feed")
     public FeedPageResponse feed(@RequestParam(defaultValue = "1") int page,
                                   @RequestParam(defaultValue = "20") int size,

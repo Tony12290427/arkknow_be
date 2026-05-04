@@ -9,11 +9,21 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring Security configuration for a stateless JWT-based REST API.
+ * <p>
+ * Design decisions:
+ * <ul>
+ *   <li>CSRF is disabled — browser-based sessions are not used; all auth is via Bearer tokens</li>
+ *   <li>Session management is STATELESS — the server stores no HTTP session state</li>
+ *   <li>Auth endpoints are public; profile and content endpoints require authentication</li>
+ *   <li>JWT decoding uses RS256 public key verification via Nimbus JOSE</li>
+ * </ul>
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -30,8 +40,13 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/send-code", "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/token/refresh", "/api/v1/auth/logout").permitAll()
-                .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**", "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish", "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine", "/api/v1/storage/presign").authenticated()
+                .requestMatchers("/api/v1/auth/send-code", "/api/v1/auth/register",
+                    "/api/v1/auth/login", "/api/v1/auth/token/refresh",
+                    "/api/v1/auth/logout").permitAll()
+                .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**",
+                    "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish",
+                    "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine",
+                    "/api/v1/storage/presign").authenticated()
                 .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*").permitAll()
                 .anyRequest().permitAll()
             )
@@ -44,6 +59,10 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Custom JWT decoder that delegates to {@link JwtService} for RS256 verification
+     * and converts Nimbus {@link SignedJWT} to Spring Security's {@link Jwt}.
+     */
     @Bean
     public JwtDecoder jwtDecoder() {
         return token -> {
