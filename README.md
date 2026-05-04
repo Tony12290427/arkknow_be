@@ -66,17 +66,35 @@ mvn spring-boot:run
 - Version prefix: `/api/v1`
 - Authentication: `Authorization: Bearer <access_token>`
 
+## Development Progress
+
+- [x] Send verification code (`POST /api/v1/auth/send-code`)
+- [x] User registration with JWT tokens (`POST /api/v1/auth/register`)
+- [x] Current user info (`GET /api/v1/auth/me`)
+- [ ] Login (`POST /api/v1/auth/login`)
+- [ ] Token refresh & logout
+- [ ] User profile management
+- [ ] Knowledge post system
+- [ ] User relations (follow/unfollow)
+- [ ] Like/favorite counter system
+- [ ] Feed caching
+- [ ] Search (Elasticsearch)
+- [ ] RAG AI Q&A
+
 ## Project Structure
 
 ```
 com.arknow/
 ├── auth/           # Authentication (JWT, verification, login/register)
-├── profile/        # User profile management
-├── knowpost/       # Knowledge post system
-├── counter/        # Counting & analytics
-├── relation/       # User relations (follow/unfollow)
-├── storage/        # Object storage (OSS)
-├── llm/            # AI/LLM integration
-├── cache/          # Cache infrastructure
-└── config/         # Configuration
+│   ├── api/        # Controllers + DTOs
+│   ├── audit/      # Login audit logging
+│   ├── config/     # Auth properties, password encoder
+│   ├── model/      # IdentifierType, ClientInfo
+│   ├── service/    # AuthService
+│   ├── token/      # JwtService, RefreshTokenStore
+│   ├── util/       # IdentifierValidator
+│   └── verification/ # CodeSender, VerificationService, Redis store
+├── common/         # Global exception handler, error codes
+├── config/         # Security configuration
+└── user/           # User domain, mapper, service
 ```
