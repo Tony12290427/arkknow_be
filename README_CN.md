@@ -71,8 +71,8 @@ mvn spring-boot:run
 - [x] 发送验证码 (`POST /api/v1/auth/send-code`)
 - [x] 用户注册 + JWT 双令牌 (`POST /api/v1/auth/register`)
 - [x] 查询当前用户 (`GET /api/v1/auth/me`)
-- [ ] 登录 (`POST /api/v1/auth/login`)
-- [ ] 令牌刷新与登出
+- [x] 登录 (`POST /api/v1/auth/login`)
+- [x] 令牌刷新与登出
 - [ ] 用户资料管理
 - [ ] 知识帖文系统
 - [ ] 用户关系（关注/取关）

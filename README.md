@@ -71,8 +71,8 @@ mvn spring-boot:run
 - [x] Send verification code (`POST /api/v1/auth/send-code`)
 - [x] User registration with JWT tokens (`POST /api/v1/auth/register`)
 - [x] Current user info (`GET /api/v1/auth/me`)
-- [ ] Login (`POST /api/v1/auth/login`)
-- [ ] Token refresh & logout
+- [x] Login (`POST /api/v1/auth/login`)
+- [x] Token refresh & logout
 - [ ] User profile management
 - [ ] Knowledge post system
 - [ ] User relations (follow/unfollow)
