@@ -107,11 +107,28 @@ public class CounterServiceImpl implements CounterService {
             return rebuildAndGet(entityType, entityId, metrics);
         }
 
+        // Read pending deltas from aggregation bucket (not yet flushed to SDS)
+        String aggKey = CounterKeys.aggKey(entityType, entityId);
+        Map<Object, Object> aggData = null;
+        try {
+            aggData = redis.opsForHash().entries(aggKey);
+        } catch (Exception ignored) {}
+
         for (String m : metrics) {
             Integer idx = CounterSchema.NAME_TO_IDX.get(m);
             if (idx == null) { result.put(m, 0L); continue; }
             int off = idx * CounterSchema.FIELD_SIZE;
-            result.put(m, readInt32BE(raw, off));
+            long sdsVal = readInt32BE(raw, off);
+
+            // Add pending delta from aggregation bucket
+            long pending = 0L;
+            if (aggData != null) {
+                Object deltaObj = aggData.get(String.valueOf(idx));
+                if (deltaObj != null) {
+                    try { pending = Long.parseLong(String.valueOf(deltaObj)); } catch (NumberFormatException ignored) {}
+                }
+            }
+            result.put(m, Math.max(0, sdsVal + pending));
         }
         return result;
     }
