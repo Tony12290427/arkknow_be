@@ -165,6 +165,12 @@ public class CounterServiceImpl implements CounterService {
             eventProducer.publish(event);
             // Synchronous aggregation in MVP mode
             try { aggregationConsumer.onEvent(event); } catch (Exception ignored) {}
+            // Invalidate all feed caches so homepage shows updated counts immediately
+            try {
+                redis.delete("feed:item:" + eid);
+                var keys = redis.keys("feed:public:*");
+                if (keys != null && !keys.isEmpty()) redis.delete(keys);
+            } catch (Exception ignored) {}
         }
         return ok;
     }
