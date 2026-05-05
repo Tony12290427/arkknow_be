@@ -14,7 +14,9 @@ import org.springframework.context.annotation.FilterType;
         @ComponentScan.Filter(type = FilterType.REGEX,
             pattern = "com\\.arknow\\.knowpost\\.api\\.KnowPost(Ai|Rag)Controller"),
         @ComponentScan.Filter(type = FilterType.REGEX,
-            pattern = "com\\.arknow\\.llm\\..*")
+            pattern = "com\\.arknow\\.llm\\..*"),
+        @ComponentScan.Filter(type = FilterType.REGEX,
+            pattern = "com\\.arknow\\.search\\.outbox\\..*")
     }
 )
 public class ArkKnowApplication {
