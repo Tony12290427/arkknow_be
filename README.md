@@ -75,7 +75,7 @@ mvn spring-boot:run
 - [x] Token refresh & logout
 - [x] User profile management
 - [x] Knowledge post system (draft/publish/feed/detail)
-- [ ] User relations (follow/unfollow)
+- [x] User relations (follow/unfollow + Outbox)
 - [ ] Like/favorite counter system
 - [ ] Feed caching
 - [ ] Search (Elasticsearch)
