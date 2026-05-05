@@ -74,6 +74,13 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Resets password using a verification code. Revokes all existing refresh tokens. */
+    @PostMapping("/password/reset")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Returns the current authenticated user's profile information. */
     @GetMapping("/me")
     public AuthUserResponse me(@AuthenticationPrincipal Jwt jwt) {
