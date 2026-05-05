@@ -227,6 +227,27 @@ public class AuthService {
         });
     }
 
+    // ==================== reset password ====================
+
+    /**
+     * Resets the user's password using a verification code.
+     * <p>
+     * After a successful reset, all existing refresh tokens for the user are revoked,
+     * forcing re-login on all devices. This is a security best practice: if a password
+     * is being reset, any existing sessions may belong to an attacker.
+     */
+    public void resetPassword(PasswordResetRequest request) {
+        validateIdentifier(request.identifierType(), request.identifier());
+        validatePassword(request.newPassword());
+        String identifier = normalizeIdentifier(request.identifierType(), request.identifier());
+        User user = findUserByIdentifier(request.identifierType(), identifier)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        ensureVerificationSuccess(verificationService.verify(VerificationScene.RESET_PASSWORD, identifier, request.code()));
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword().trim()));
+        userService.updatePassword(user);
+        refreshTokenStore.revokeAll(user.getId());
+    }
+
     // ==================== me ====================
 
     /** Returns the current user's profile based on the authenticated JWT. */
