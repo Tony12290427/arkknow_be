@@ -78,7 +78,7 @@ mvn spring-boot:run
 - [x] User relations (follow/unfollow + Outbox)
 - [x] Like/favorite counter system (SDS + bitmap)
 - [x] Feed three-tier cache + hotkey detection
-- [ ] Search (Elasticsearch)
+- [x] Search (Elasticsearch + NoOp fallback)
 - [ ] RAG AI Q&A
 
 ## Project Structure
