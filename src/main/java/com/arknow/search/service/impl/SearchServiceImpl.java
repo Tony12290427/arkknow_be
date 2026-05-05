@@ -48,7 +48,7 @@ import java.util.Map;
 @ConditionalOnProperty(name = "spring.elasticsearch.uris")
 public class SearchServiceImpl implements SearchService {
     private static final Logger log = LoggerFactory.getLogger(SearchServiceImpl.class);
-    private static final String INDEX = "zhizhou-posts";
+    private static final String INDEX = "arknow-posts";
 
     private final ElasticsearchClient es;
 
@@ -106,7 +106,6 @@ public class SearchServiceImpl implements SearchService {
                     .from((safePage - 1) * safeSize)
                     .size(safeSize)
                     .sort(so -> so.field(f -> f.field("_score").order(SortOrder.Desc)))
-                    .sort(so -> so.field(f -> f.field("publishTime").order(SortOrder.Desc)))
             ), Map.class);
 
             return mapHits(result);

@@ -18,6 +18,8 @@ spring:
     consumer:
       auto-offset-reset: earliest
       enable-auto-commit: false
+  elasticsearch:
+    uris: http://localhost:9200
   autoconfigure:
     exclude:
       - org.springframework.ai.autoconfigure.vectorstore.elasticsearch.ElasticsearchVectorStoreAutoConfiguration
@@ -56,6 +58,7 @@ cache:
   fragment-ttl: 120
   local-ttl: 30
   local-max-size: 500
+
   hotkey:
     window-seconds: 60
     segment-seconds: 10

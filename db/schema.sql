@@ -1,4 +1,4 @@
--- 知舟 (ZhiZhou) 数据库 Schema
+-- 知舟 (ArkKnow) 数据库 Schema
 
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
