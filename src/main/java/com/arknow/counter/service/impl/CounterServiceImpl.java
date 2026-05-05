@@ -140,6 +140,50 @@ public class CounterServiceImpl implements CounterService {
     }
 
     @Override
+    public Map<String, Map<String, Long>> batchGetCounts(String entityType, List<String> entityIds, List<String> metrics) {
+        Map<String, Map<String, Long>> result = new LinkedHashMap<>();
+        int expectedLen = CounterSchema.SCHEMA_LEN * CounterSchema.FIELD_SIZE;
+
+        List<Object> rawResults = redis.executePipelined((RedisCallback<Object>) connection -> {
+            for (String eid : entityIds) {
+                connection.stringCommands().get(CounterKeys.sdsKey(entityType, eid).getBytes(StandardCharsets.UTF_8));
+            }
+            return null;
+        });
+
+        for (int i = 0; i < entityIds.size(); i++) {
+            String eid = entityIds.get(i);
+            Map<String, Long> counts = new LinkedHashMap<>();
+            Object obj = rawResults != null && i < rawResults.size() ? rawResults.get(i) : null;
+            byte[] raw = (obj instanceof String s) ? s.getBytes(StandardCharsets.UTF_8) : null;
+            boolean needRebuild = (raw == null || raw.length != expectedLen);
+
+            if (needRebuild) {
+                // Use single-get rebuild (async rebuild would be better at scale)
+                counts = getCounts(entityType, eid, metrics);
+            } else {
+                Map<Object, Object> aggData = null;
+                try { aggData = redis.opsForHash().entries(CounterKeys.aggKey(entityType, eid)); } catch (Exception ignored) {}
+                for (String m : metrics) {
+                    Integer idx = CounterSchema.NAME_TO_IDX.get(m);
+                    if (idx == null) { counts.put(m, 0L); continue; }
+                    long sdsVal = readInt32BE(raw, idx * CounterSchema.FIELD_SIZE);
+                    long pending = 0L;
+                    if (aggData != null) {
+                        Object deltaObj = aggData.get(String.valueOf(idx));
+                        if (deltaObj != null) {
+                            try { pending = Long.parseLong(String.valueOf(deltaObj)); } catch (NumberFormatException ignored) {}
+                        }
+                    }
+                    counts.put(m, Math.max(0, sdsVal + pending));
+                }
+            }
+            result.put(eid, counts);
+        }
+        return result;
+    }
+
+    @Override
     public boolean isLiked(String entityType, String entityId, long userId) {
         return getBit(CounterKeys.bitmapKey("like", entityType, entityId, BitmapShard.chunkOf(userId)),
                 BitmapShard.bitOf(userId));
@@ -171,12 +215,15 @@ public class CounterServiceImpl implements CounterService {
             eventProducer.publish(event);
             // Synchronous aggregation in MVP mode
             try { aggregationConsumer.onEvent(event); } catch (Exception ignored) {}
-            // Invalidate all feed caches so homepage shows updated counts immediately
+            // Precise Caffeine invalidation: only clear pages containing this entity
             try {
-                redis.delete("feed:item:" + eid);
-                var keys = redis.keys("feed:public:*");
-                if (keys != null && !keys.isEmpty()) redis.delete(keys);
-                feedPublicCache.invalidateAll();
+                for (var entry : feedPublicCache.asMap().entrySet()) {
+                    boolean hasItem = entry.getValue() != null
+                        && entry.getValue().items() != null
+                        && entry.getValue().items().stream()
+                            .anyMatch(item -> eid.equals(item.id()));
+                    if (hasItem) feedPublicCache.invalidate(entry.getKey());
+                }
             } catch (Exception ignored) {}
         }
         return ok;
