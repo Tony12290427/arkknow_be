@@ -62,11 +62,20 @@ public class SearchServiceImpl implements SearchService {
         int safePage = Math.max(page, 1);
 
         try {
-            // Build the base text query
+            // Multi-strategy query: phrase match (precision) + ngram (recall) + cross_fields (fuzzy)
             Query textQuery = Query.of(q -> q
-                    .multiMatch(mm -> mm
-                            .fields("title^3", "description^2", "tags^1")
-                            .query(keyword)
+                    .bool(b -> b
+                        .should(Query.of(sq -> sq
+                            .matchPhrase(mp -> mp.field("title").query(keyword).boost(10.0f))))
+                        .should(Query.of(sq -> sq
+                            .multiMatch(mm -> mm
+                                .fields("title^5", "title.ngram^3", "description^2",
+                                        "description.ngram^1", "tags^2", "tags.ngram^1")
+                                .query(keyword)
+                                .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.MostFields))))
+                        .should(Query.of(sq -> sq
+                            .matchPhrase(mp -> mp.field("description").query(keyword).boost(5.0f))))
+                        .minimumShouldMatch("1")
                     ));
 
             // Wrap with optional tag filter (immutable reference for lambda capture)
