@@ -117,8 +117,12 @@ public class KnowPostFeedServiceImpl implements KnowPostFeedService {
                 boolean hasMore = rows.size() > safeSize;
                 if (hasMore) rows = rows.subList(0, safeSize);
 
+                // Batch-read SDS counters — one pipeline call instead of N
+                List<String> rowIds = rows.stream().map(KnowPostFeedRow::getId).toList();
+                Map<String, Map<String, Long>> batchCounts = counterService.batchGetCounts(
+                    "knowpost", rowIds, List.of("like", "fav"));
                 List<FeedItemResponse> items = rows.stream()
-                        .map(r -> toFeedItem(r, currentUserId)).toList();
+                        .map(r -> toFeedItem(r, currentUserId, batchCounts)).toList();
                 FeedPageResponse resp = new FeedPageResponse(items, safePage, safeSize, hasMore);
 
                 // Write back to all cache layers
@@ -188,10 +192,15 @@ public class KnowPostFeedServiceImpl implements KnowPostFeedService {
             redis.opsForValue().set(idsKey, objectMapper.writeValueAsString(ids), pageTtl);
             redis.opsForValue().set(hasMoreKey, String.valueOf(hasMore), pageTtl);
 
-            // L0: item fragments
+            // L0: item fragments — strip per-user state from public cache
             for (FeedItemResponse item : items) {
+                FeedItemResponse clean = new FeedItemResponse(
+                    item.id(), item.title(), item.description(), item.coverImage(),
+                    item.tags(), item.authorAvatar(), item.authorNickname(),
+                    item.tagJson(), item.likeCount(), item.favoriteCount(),
+                    false, false, item.isTop()); // liked/faved always false in public cache
                 String itemKey = "feed:item:" + item.id();
-                redis.opsForValue().set(itemKey, objectMapper.writeValueAsString(item), frTtl);
+                redis.opsForValue().set(itemKey, objectMapper.writeValueAsString(clean), frTtl);
             }
         } catch (Exception e) {
             log.warn("Failed to write feed cache: {}", e.getMessage());
@@ -238,12 +247,15 @@ public class KnowPostFeedServiceImpl implements KnowPostFeedService {
         return new FeedPageResponse(enriched, cached.page(), cached.size(), cached.hasMore());
     }
 
-    private FeedItemResponse toFeedItem(KnowPostFeedRow r, Long currentUserId) {
+    private FeedItemResponse toFeedItem(KnowPostFeedRow r, Long currentUserId,
+                                          Map<String, Map<String, Long>> batchCounts) {
         List<String> imgs = parseArray(r.getImgUrls());
         long uid = currentUserId != null ? currentUserId : 0L;
         boolean liked = currentUserId != null && counterService.isLiked("knowpost", r.getId(), uid);
         boolean faved = currentUserId != null && counterService.isFaved("knowpost", r.getId(), uid);
-        Map<String, Long> counts = counterService.getCounts("knowpost", r.getId(), List.of("like", "fav"));
+        Map<String, Long> counts = batchCounts != null && batchCounts.containsKey(r.getId())
+            ? batchCounts.get(r.getId())
+            : counterService.getCounts("knowpost", r.getId(), List.of("like", "fav"));
 
         return new FeedItemResponse(
                 r.getId(), r.getTitle(), r.getDescription(), imgs.isEmpty() ? null : imgs.getFirst(),
