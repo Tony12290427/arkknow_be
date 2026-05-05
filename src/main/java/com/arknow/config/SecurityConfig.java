@@ -47,8 +47,10 @@ public class SecurityConfig {
                     "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish",
                     "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine",
                     "/api/v1/storage/presign",
-                    "/api/v1/relation/**").authenticated()
-                .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*").permitAll()
+                    "/api/v1/relation/**",
+                    "/api/v1/action/**").authenticated()
+                .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*",
+                    "/api/v1/counter/**").permitAll()
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
