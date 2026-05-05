@@ -215,8 +215,11 @@ public class CounterServiceImpl implements CounterService {
             eventProducer.publish(event);
             // Synchronous aggregation in MVP mode
             try { aggregationConsumer.onEvent(event); } catch (Exception ignored) {}
-            // Precise Caffeine invalidation: only clear pages containing this entity
+            // Precise cache invalidation: clear L0 fragment + affected Caffeine pages
+            // L0 still holds likeCount/favCount (frozen), must delete so next read
+            // assembles from SDS batchGetCounts with live values
             try {
+                redis.delete("feed:item:" + eid);
                 for (var entry : feedPublicCache.asMap().entrySet()) {
                     boolean hasItem = entry.getValue() != null
                         && entry.getValue().items() != null
