@@ -77,7 +77,7 @@ mvn spring-boot:run
 - [x] Knowledge post system (draft/publish/feed/detail)
 - [x] User relations (follow/unfollow + Outbox)
 - [x] Like/favorite counter system (SDS + bitmap)
-- [ ] Feed caching
+- [x] Feed three-tier cache + hotkey detection
 - [ ] Search (Elasticsearch)
 - [ ] RAG AI Q&A
 

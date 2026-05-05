@@ -77,7 +77,7 @@ mvn spring-boot:run
 - [x] 知识帖文系统（草稿/发布/Feed/详情）
 - [x] 用户关系（关注/取关 + Outbox 事件驱动）
 - [x] 点赞/收藏计数系统（Redis SDS + 分片位图）
-- [ ] Feed 缓存
+- [x] Feed 三级缓存 + 热键探测
 - [ ] 搜索（Elasticsearch）
 - [ ] RAG AI 问答
 
