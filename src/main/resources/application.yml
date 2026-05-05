@@ -51,6 +51,21 @@ auth:
     bcrypt-strength: 12
     min-length: 8
 
+cache:
+  page-ttl: 60
+  fragment-ttl: 120
+  local-ttl: 30
+  local-max-size: 500
+  hotkey:
+    window-seconds: 60
+    segment-seconds: 10
+    level-low: 50
+    level-medium: 200
+    level-high: 500
+    extend-low-seconds: 20
+    extend-medium-seconds: 60
+    extend-high-seconds: 120
+
 oss:
   endpoint: oss-cn-hangzhou.aliyuncs.com
   access-key-id: fake-dev-key
