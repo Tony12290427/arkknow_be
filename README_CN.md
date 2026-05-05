@@ -78,7 +78,7 @@ mvn spring-boot:run
 - [x] 用户关系（关注/取关 + Outbox 事件驱动）
 - [x] 点赞/收藏计数系统（Redis SDS + 分片位图）
 - [x] Feed 三级缓存 + 热键探测
-- [ ] 搜索（Elasticsearch）
+- [x] 搜索（Elasticsearch + NoOp 降级）
 - [ ] RAG AI 问答
 
 ## 项目结构

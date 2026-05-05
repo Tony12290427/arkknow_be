@@ -50,7 +50,8 @@ public class SecurityConfig {
                     "/api/v1/relation/**",
                     "/api/v1/action/**").authenticated()
                 .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*",
-                    "/api/v1/counter/**").permitAll()
+                    "/api/v1/counter/**",
+                    "/api/v1/search/**").permitAll()
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
