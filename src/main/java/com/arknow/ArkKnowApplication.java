@@ -10,11 +10,11 @@ import org.springframework.context.annotation.FilterType;
     basePackages = "com.arknow",
     excludeFilters = {
         @ComponentScan.Filter(type = FilterType.REGEX,
-            pattern = "com\\.arknow\\.llm\\..*"),
-        @ComponentScan.Filter(type = FilterType.REGEX,
             pattern = "com\\.arknow\\.relation\\.outbox\\..*"),
         @ComponentScan.Filter(type = FilterType.REGEX,
-            pattern = "com\\.arknow\\.knowpost\\.api\\.KnowPost(Ai|Rag)Controller")
+            pattern = "com\\.arknow\\.knowpost\\.api\\.KnowPost(Ai|Rag)Controller"),
+        @ComponentScan.Filter(type = FilterType.REGEX,
+            pattern = "com\\.arknow\\.llm\\..*")
     }
 )
 public class ArkKnowApplication {

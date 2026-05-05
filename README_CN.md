@@ -79,7 +79,7 @@ mvn spring-boot:run
 - [x] 点赞/收藏计数系统（Redis SDS + 分片位图）
 - [x] Feed 三级缓存 + 热键探测
 - [x] 搜索（Elasticsearch + NoOp 降级）
-- [ ] RAG AI 问答
+- [x] RAG AI 问答（DeepSeek + 向量检索，环境变量开关）
 
 ## 项目结构
 

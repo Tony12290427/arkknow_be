@@ -79,7 +79,7 @@ mvn spring-boot:run
 - [x] Like/favorite counter system (SDS + bitmap)
 - [x] Feed three-tier cache + hotkey detection
 - [x] Search (Elasticsearch + NoOp fallback)
-- [ ] RAG AI Q&A
+- [x] RAG AI Q&A (DeepSeek + VectorStore, env-gated)
 
 ## Project Structure
 
