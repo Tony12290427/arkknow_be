@@ -161,7 +161,7 @@ public class SearchServiceImpl implements SearchService {
             Map<String, Object> src = hit.source();
             if (src == null) continue;
             list.add(new SearchResponse(
-                    String.valueOf(src.getOrDefault("id", "")),
+                    String.valueOf(src.getOrDefault("content_id", "")),
                     String.valueOf(src.getOrDefault("title", "")),
                     String.valueOf(src.getOrDefault("description", "")),
                     String.valueOf(src.getOrDefault("coverImage", "")),
