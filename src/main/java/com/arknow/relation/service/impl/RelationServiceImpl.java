@@ -92,16 +92,20 @@ public class RelationServiceImpl implements RelationService {
     @Override
     @Transactional
     public boolean follow(long fromUserId, long toUserId) {
+        if (fromUserId == toUserId) return false;
+
         // Token bucket rate limit
         DefaultRedisScript<Long> tokenScript = new DefaultRedisScript<>(TOKEN_BUCKET_LUA, Long.class);
         Long ok = redis.execute(tokenScript, List.of("rl:follow:" + fromUserId), "100", "1");
         if (ok == null || ok == 0L) return false;
 
+        // Check if already following — avoid duplicate key violation
+        if (relationMapper.existsFollowing(fromUserId, toUserId)) return false;
+
         long id = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
         int inserted = relationMapper.insertFollowing(id, fromUserId, toUserId, 1);
 
         if (inserted > 0) {
-            // Write Outbox event in the same transaction
             writeOutboxEvent("FollowCreated", fromUserId, toUserId, id);
             return true;
         }
