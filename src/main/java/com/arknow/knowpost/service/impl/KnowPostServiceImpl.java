@@ -10,6 +10,8 @@ import com.arknow.knowpost.model.KnowPost;
 import com.arknow.knowpost.model.KnowPostDetailRow;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import com.arknow.knowpost.service.KnowPostService;
+import com.arknow.search.index.SearchIndexService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,12 +36,15 @@ public class KnowPostServiceImpl implements KnowPostService {
     private final KnowPostMapper mapper;
     private final SnowflakeIdGenerator idGen;
     private final CounterService counterService;
+    private final SearchIndexService searchIndexService;
 
     public KnowPostServiceImpl(KnowPostMapper mapper, SnowflakeIdGenerator idGen,
-                                CounterService counterService) {
+                                CounterService counterService,
+                                @Autowired(required = false) SearchIndexService searchIndexService) {
         this.mapper = mapper;
         this.idGen = idGen;
         this.counterService = counterService;
+        this.searchIndexService = searchIndexService;
     }
 
     @Override
@@ -90,6 +95,10 @@ public class KnowPostServiceImpl implements KnowPostService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "只能发布草稿状态的内容");
         }
         mapper.publish(postId, java.time.Instant.now());
+        // Sync to ES search index (no-op if ES not configured)
+        if (searchIndexService != null) {
+            try { searchIndexService.upsertKnowPost(postId); } catch (Exception ignored) {}
+        }
     }
 
     @Override
