@@ -116,18 +116,26 @@
 ## 快速开始
 
 ```bash
-# 前置条件：Java 21, Maven, MySQL 8, Redis 7
+# 前置条件：Java 21, Maven, MySQL 8, Redis 7, Docker
+
+# 启动基础设施
+brew services start redis
+docker run -d --name elasticsearch -p 9200:9200 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  --memory 1g \
+  docker.elastic.co/elasticsearch/elasticsearch:9.0.0
 
 # 创建数据库
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS arkknow DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root arkknow < db/schema.sql
 
-# 启动 Redis
-brew services start redis
-
 # 运行应用
 mvn spring-boot:run
 ```
+
+Elasticsearch 是可选的 — 没有 ES 也能启动，搜索功能降级返回空结果。
 
 ## 运行测试
 

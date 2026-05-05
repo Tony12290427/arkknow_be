@@ -116,18 +116,26 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 ## Quick Start
 
 ```bash
-# Prerequisites: Java 21, Maven, MySQL 8, Redis 7
+# Prerequisites: Java 21, Maven, MySQL 8, Redis 7, Docker
+
+# Start infrastructure
+brew services start redis
+docker run -d --name elasticsearch -p 9200:9200 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  --memory 1g \
+  docker.elastic.co/elasticsearch/elasticsearch:9.0.0
 
 # Create database
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS arkknow DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root arkknow < db/schema.sql
 
-# Start Redis
-brew services start redis
-
 # Run application
 mvn spring-boot:run
 ```
+
+Elasticsearch is optional — the app starts without it, and search falls back to returning empty results.
 
 ## Run Tests
 
