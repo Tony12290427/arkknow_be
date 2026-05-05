@@ -44,6 +44,75 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 | POST | `/logout` | Yes | Logout and revoke refresh token |
 | GET | `/me` | Yes | Get current user info |
 
+### Profile (`/api/v1/profile`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | Yes | Get current user profile |
+| PATCH | `/` | Yes | Update profile fields (partial) |
+| POST | `/avatar` | Yes | Upload avatar (multipart) |
+
+### Knowledge Posts (`/api/v1/knowposts`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/drafts` | Yes | Create draft (Snowflake ID) |
+| POST | `/{id}/content/confirm` | Yes | Confirm OSS upload (ETag/SHA256) |
+| PATCH | `/{id}` | Yes | Update metadata (title, tags, etc.) |
+| POST | `/{id}/publish` | Yes | Publish draft |
+| PATCH | `/{id}/top` | Yes | Toggle top |
+| PATCH | `/{id}/visibility` | Yes | Change visibility |
+| DELETE | `/{id}` | Yes | Soft delete |
+| GET | `/feed` | No | Public feed (paginated) |
+| GET | `/detail/{id}` | No | Post detail |
+| GET | `/mine` | Yes | My posts |
+
+### Actions — Like & Favorite (`/api/v1/action`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/like` | Yes | Like an entity (idempotent) |
+| POST | `/unlike` | Yes | Remove like |
+| POST | `/fav` | Yes | Favorite an entity (idempotent) |
+| POST | `/unfav` | Yes | Remove favorite |
+
+### Counters (`/api/v1/counter`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/{etype}/{eid}` | No | Get counts (like, fav, etc.) |
+
+### User Relations (`/api/v1/relation`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/follow` | Yes | Follow a user |
+| POST | `/unfollow` | Yes | Unfollow a user |
+| GET | `/status` | Yes | Three-state status (following/followedBy/mutual) |
+| GET | `/following` | No | Following list (paginated) |
+| GET | `/followers` | No | Follower list (paginated) |
+
+### Storage (`/api/v1/storage`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/presign` | Yes | Get OSS presigned upload URL |
+
+### Search (`/api/v1/search`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | No | Full-text search (BM25 + function_score) |
+| GET | `/suggest` | No | Prefix completion suggestions |
+
+### RAG AI (`/api/v1/knowposts`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/description/suggest` | Yes | AI-generated post summary (≤50 chars) |
+| GET | `/{id}/qa/stream` | Yes | RAG Q&A (SSE streaming) |
+| POST | `/{id}/rag/reindex` | Yes | Rebuild vector index |
+
 ## Quick Start
 
 ```bash
@@ -60,26 +129,17 @@ brew services start redis
 mvn spring-boot:run
 ```
 
+## Run Tests
+
+```bash
+bash test_all.sh
+```
+
 ## API Base
 
 - Base path: `/api`
 - Version prefix: `/api/v1`
 - Authentication: `Authorization: Bearer <access_token>`
-
-## Development Progress
-
-- [x] Send verification code (`POST /api/v1/auth/send-code`)
-- [x] User registration with JWT tokens (`POST /api/v1/auth/register`)
-- [x] Current user info (`GET /api/v1/auth/me`)
-- [x] Login (`POST /api/v1/auth/login`)
-- [x] Token refresh & logout
-- [x] User profile management
-- [x] Knowledge post system (draft/publish/feed/detail)
-- [x] User relations (follow/unfollow + Outbox)
-- [x] Like/favorite counter system (SDS + bitmap)
-- [x] Feed three-tier cache + hotkey detection
-- [x] Search (Elasticsearch + NoOp fallback)
-- [x] RAG AI Q&A (DeepSeek + VectorStore, env-gated)
 
 ## Project Structure
 
@@ -94,7 +154,77 @@ com.arknow/
 │   ├── token/      # JwtService, RefreshTokenStore
 │   ├── util/       # IdentifierValidator
 │   └── verification/ # CodeSender, VerificationService, Redis store
+├── profile/        # User profile management
+│   ├── api/        # ProfileController + DTOs
+│   └── service/    # ProfileService
+├── knowpost/       # Knowledge post system
+│   ├── api/        # KnowPostController + DTOs
+│   ├── id/         # SnowflakeIdGenerator
+│   ├── listener/   # FeedCacheInvalidationListener
+│   ├── mapper/     # KnowPostMapper
+│   ├── model/      # KnowPost, FeedRow, DetailRow
+│   └── service/    # KnowPostService, KnowPostFeedService
+├── counter/        # Counting & analytics
+│   ├── api/        # ActionController, CounterController
+│   ├── config/     # CounterConfig (@EnableScheduling)
+│   ├── event/      # CounterEvent, Producer, AggregationConsumer
+│   ├── schema/     # CounterSchema, CounterKeys, BitmapShard
+│   └── service/    # CounterService, UserCounterService
+├── relation/       # User relations (follow/unfollow)
+│   ├── api/        # RelationController
+│   ├── event/      # RelationEvent
+│   ├── mapper/     # RelationMapper
+│   ├── outbox/     # OutboxMapper, OutboxTopics
+│   ├── processor/  # RelationEventProcessor
+│   └── service/    # RelationService
+├── storage/        # Object storage (OSS)
+│   ├── api/        # StorageController + DTOs
+│   └── config/     # OssProperties
+├── search/         # Elasticsearch search
+│   ├── api/        # SearchController + DTOs
+│   ├── index/      # SearchIndexService
+│   └── service/    # SearchService
+├── llm/            # AI/LLM integration
+│   ├── rag/        # RagIndexService, RagQueryService
+│   └── service/    # KnowPostDescriptionService
+├── cache/          # Cache infrastructure
+│   ├── config/     # CacheConfig, CacheProperties
+│   └── hotkey/     # HotKeyDetector
 ├── common/         # Global exception handler, error codes
-├── config/         # Security configuration
+├── config/         # SecurityConfig, WebConfig, ElasticsearchConfig
 └── user/           # User domain, mapper, service
 ```
+
+## Design Highlights
+
+### Dual-Token Authentication
+- **accessToken**: 15min TTL, stateless RS256 JWT, never hits DB/Redis for validation
+- **refreshToken**: 7-day TTL, stored in Redis whitelist, can be revoked instantly
+- **Token rotation**: each refresh revokes the old token, detecting token theft
+
+### Outbox Pattern (User Relations)
+- `following` table + `outbox` table written in one DB transaction
+- Follower projection, counters, and caches updated asynchronously from events
+- Eliminates dual-write inconsistency between following and follower tables
+
+### Redis SDS Compact Counters
+- All 5 metrics stored in a single 20-byte binary blob per entity
+- No Hash field name overhead — just offset-based access via Lua scripts
+- Self-healing: counts rebuilt from bitmap facts when SDS is corrupt
+
+### Sharded Bitmap Idempotency
+- 32K-bit shards prevent single-key hotspots on popular content
+- Each user action toggles one bit → O(1) dedup → unchanged bits = no-op
+- Bitmaps serve as the "fact layer" for count rebuilds
+
+### Three-Tier Feed Cache
+- **L2 (Caffeine)**: complete page responses in memory, zero network cost
+- **L1 (Redis page skeleton)**: ID list + hasMore flag for fast assembly
+- **L0 (Redis fragments)**: per-item metadata with separate TTLs
+- **Single-flight**: concurrent cache misses coalesced into one DB query
+- **Hotkey extension**: sliding-window detection extends TTL for popular pages
+
+### Kafka Write Aggregation (Counters)
+- Fine-grained writes (one per action) → Kafka → Redis Hash buckets → batch flush to SDS
+- Write amplification reduced by 10-1000x
+- Periodic flush at 1s intervals for near-real-time count visibility
