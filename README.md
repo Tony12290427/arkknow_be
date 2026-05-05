@@ -15,6 +15,8 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 | Security | Spring Security | 6.x |
 | Message Queue | Apache Kafka | Latest |
 | Object Storage | Alibaba Cloud OSS | 3.17.3 |
+| Search Engine | Elasticsearch | 9.0.0 (Docker) |
+| Chinese Tokenizer | smartcn | Built-in |
 | AI Integration | Spring AI | 1.0.3 |
 | Build Tool | Maven | Latest |
 
@@ -42,6 +44,7 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 | POST | `/login` | No | Login with password or code |
 | POST | `/token/refresh` | No | Refresh access token |
 | POST | `/logout` | Yes | Logout and revoke refresh token |
+| POST | `/password/reset` | No | Reset password with code |
 | GET | `/me` | Yes | Get current user info |
 
 ### Profile (`/api/v1/profile`)
@@ -133,6 +136,12 @@ mysql -u root arkknow < db/schema.sql
 
 # Run application
 mvn spring-boot:run
+```
+
+Install the Chinese tokenizer plugin:
+```bash
+docker exec elasticsearch bin/elasticsearch-plugin install analysis-smartcn
+docker restart elasticsearch
 ```
 
 Elasticsearch is optional — the app starts without it, and search falls back to returning empty results.
@@ -236,3 +245,16 @@ com.arknow/
 - Fine-grained writes (one per action) → Kafka → Redis Hash buckets → batch flush to SDS
 - Write amplification reduced by 10-1000x
 - Periodic flush at 1s intervals for near-real-time count visibility
+
+### Search Optimization
+- **smartcn Chinese tokenizer**: ES built-in plugin with statistical segmentation
+- **ngram substring matching**: 1-3 char ngrams for fuzzy and partial matching
+- **Multi-strategy query**: match_phrase (precision) + multi_match (recall) + MostFields
+- **function_score**: BM25 text relevance blended with like count business weight
+- **Publish-to-index**: new posts auto-synced to ES on publish, immediately searchable
+
+### Optimistic Updates & Precise Cache Invalidation
+- **Frontend optimistic update**: TanStack Query onMutate for instant UI, onError rollback
+- **Caffeine L2 precise invalidation**: only clears pages containing the affected entity
+- **L0 fragment dynamic count**: liked/faved excluded from public cache; counter changes delete L0 fragments, forcing SDS batch read
+- **SDS batch read**: Redis pipeline fetches all page counts in one round trip

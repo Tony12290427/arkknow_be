@@ -15,6 +15,8 @@
 | 安全 | Spring Security | 6.x |
 | 消息队列 | Apache Kafka | Latest |
 | 对象存储 | 阿里云 OSS | 3.17.3 |
+| 搜索引擎 | Elasticsearch | 9.0.0 (Docker) |
+| 中文分词 | smartcn | ES 内置 |
 | AI 集成 | Spring AI | 1.0.3 |
 | 构建工具 | Maven | Latest |
 
@@ -42,6 +44,7 @@
 | POST | `/login` | 否 | 密码或验证码登录 |
 | POST | `/token/refresh` | 否 | 刷新访问令牌 |
 | POST | `/logout` | 是 | 登出并撤销刷新令牌 |
+| POST | `/password/reset` | 否 | 验证码重置密码 |
 | GET | `/me` | 是 | 查询当前用户信息 |
 
 ### 用户资料 (`/api/v1/profile`)
@@ -133,6 +136,12 @@ mysql -u root arkknow < db/schema.sql
 
 # 运行应用
 mvn spring-boot:run
+```
+
+安装 ES 中文分词插件：
+```bash
+docker exec elasticsearch bin/elasticsearch-plugin install analysis-smartcn
+docker restart elasticsearch
 ```
 
 Elasticsearch 是可选的 — 没有 ES 也能启动，搜索功能降级返回空结果。
@@ -236,3 +245,16 @@ com.arknow/
 - 细粒度写入 → Kafka → Redis Hash 聚合桶 → 批量刷写到 SDS
 - 写放大降低 10-1000 倍
 - 每秒定时刷写，近实时计数可见
+
+### 搜索优化
+- **smartcn 中文分词**：ES 内置插件，30 万词库统计分词
+- **ngram 子串匹配**：1-3 字符 ngram，支持模糊搜索和部分匹配
+- **多策略查询**：match_phrase（精准）+ multi_match（广召回）+ MostFields 策略
+- **function_score**：BM25 文本相关性 + 点赞数业务权重
+- **发布即索引**：新文章发布后自动同步到 ES，立即可搜
+
+### 乐观更新 + 精准缓存失效
+- **前端乐观更新**：TanStack Query onMutate 立即更新 UI，onError 回滚
+- **Caffeine L2 精准失效**：只清除包含被操作文章的页面缓存
+- **L0 碎片动态计数**：liked/faved 不进公共缓存，计数变化时删 L0 碎片从 SDS 实时读
+- **SDS 批量读取**：Redis pipeline 一次往返拿整页计数，替代 N 次单条查询
