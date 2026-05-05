@@ -46,7 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**",
                     "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish",
                     "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine",
-                    "/api/v1/storage/presign").authenticated()
+                    "/api/v1/storage/presign",
+                    "/api/v1/relation/**").authenticated()
                 .requestMatchers("/api/v1/knowposts/feed", "/api/v1/knowposts/detail/*").permitAll()
                 .anyRequest().permitAll()
             )
