@@ -7,8 +7,11 @@ import com.arknow.counter.schema.BitmapShard;
 import com.arknow.counter.schema.CounterKeys;
 import com.arknow.counter.schema.CounterSchema;
 import com.arknow.counter.service.CounterService;
+import com.arknow.knowpost.api.dto.FeedPageResponse;
+import com.github.benmanes.caffeine.cache.Cache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisStringCommands;
@@ -46,6 +49,7 @@ public class CounterServiceImpl implements CounterService {
     private final StringRedisTemplate redis;
     private final CounterEventProducer eventProducer;
     private final CounterAggregationConsumer aggregationConsumer;
+    private final Cache<String, FeedPageResponse> feedPublicCache;
 
     /** Lua script: atomically toggles a bit and returns 1 if changed, 0 if unchanged. */
     private static final String TOGGLE_LUA = """
@@ -65,10 +69,12 @@ public class CounterServiceImpl implements CounterService {
             """;
 
     public CounterServiceImpl(StringRedisTemplate redis, CounterEventProducer eventProducer,
-                               CounterAggregationConsumer aggregationConsumer) {
+                               CounterAggregationConsumer aggregationConsumer,
+                               @Qualifier("feedPublicCache") Cache<String, FeedPageResponse> feedPublicCache) {
         this.redis = redis;
         this.eventProducer = eventProducer;
         this.aggregationConsumer = aggregationConsumer;
+        this.feedPublicCache = feedPublicCache;
     }
 
     // ==================== Actions ====================
@@ -170,6 +176,7 @@ public class CounterServiceImpl implements CounterService {
                 redis.delete("feed:item:" + eid);
                 var keys = redis.keys("feed:public:*");
                 if (keys != null && !keys.isEmpty()) redis.delete(keys);
+                feedPublicCache.invalidateAll();
             } catch (Exception ignored) {}
         }
         return ok;
