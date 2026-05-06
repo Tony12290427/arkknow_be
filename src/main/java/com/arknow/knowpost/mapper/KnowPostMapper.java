@@ -26,4 +26,5 @@ public interface KnowPostMapper {
                              @Param("sha256") String sha256, @Param("contentUrl") String contentUrl);
     List<Long> listMyPublishedIds(@Param("creatorId") long creatorId);
     List<KnowPostFeedRow> listFeedByFollowing(@Param("userId") long userId, @Param("limit") int limit, @Param("offset") int offset);
+    KnowPostFeedRow getFeedRowById(@Param("id") long id);
 }

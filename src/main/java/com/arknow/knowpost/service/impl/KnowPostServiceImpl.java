@@ -143,7 +143,6 @@ public class KnowPostServiceImpl implements KnowPostService {
     }
 
     @Override
-    @Override
     public FeedPageResponse getFollowingFeed(long userId, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), 50);
         int safePage = Math.max(page, 1);
