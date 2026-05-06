@@ -107,6 +107,15 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
+    <select id="getFeedRowById" resultType="com.arknow.knowpost.model.KnowPostFeedRow">
+        SELECT kp.id, kp.title, kp.description, kp.img_urls,
+               kp.tags, kp.is_top, kp.visible, kp.type,
+               u.avatar AS author_avatar, u.nickname AS author_nickname,
+               u.tags_json AS author_tag_json
+        FROM know_posts kp JOIN users u ON kp.creator_id = u.id
+        WHERE kp.id = #{id}
+    </select>
+
     <select id="listMyPublishedIds" resultType="long">
         SELECT id FROM know_posts WHERE creator_id = #{creatorId} AND status = 'published'
     </select>
