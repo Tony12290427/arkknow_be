@@ -143,6 +143,19 @@ public class KnowPostServiceImpl implements KnowPostService {
     }
 
     @Override
+    @Override
+    public FeedPageResponse getFollowingFeed(long userId, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        int safePage = Math.max(page, 1);
+        int offset = (safePage - 1) * safeSize;
+        List<KnowPostFeedRow> rows = mapper.listFeedByFollowing(userId, safeSize + 1, offset);
+        boolean hasMore = rows.size() > safeSize;
+        if (hasMore) rows = rows.subList(0, safeSize);
+        List<FeedItemResponse> items = rows.stream().map(r -> toFeedItem(r, userId)).toList();
+        return new FeedPageResponse(items, safePage, safeSize, hasMore);
+    }
+
+    @Override
     public FeedPageResponse getMyPosts(long creatorId, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), 50);
         int safePage = Math.max(page, 1);

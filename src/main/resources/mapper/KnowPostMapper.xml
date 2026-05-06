@@ -90,6 +90,23 @@
         WHERE id = #{id}
     </update>
 
+    <select id="listFeedByFollowing" resultType="com.arknow.knowpost.model.KnowPostFeedRow">
+        SELECT
+            kp.id, kp.title, kp.description, kp.img_urls,
+            kp.tags, kp.is_top, kp.visible, kp.type,
+            u.avatar AS author_avatar, u.nickname AS author_nickname,
+            u.tags_json AS author_tag_json,
+            0 AS like_count, 0 AS favorite_count
+        FROM know_posts kp
+        JOIN users u ON kp.creator_id = u.id
+        WHERE kp.creator_id IN (
+            SELECT to_user_id FROM following WHERE from_user_id = #{userId}
+        )
+        AND kp.status = 'published' AND kp.visible = 'public'
+        ORDER BY kp.is_top DESC, kp.publish_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
     <select id="listMyPublishedIds" resultType="long">
         SELECT id FROM know_posts WHERE creator_id = #{creatorId} AND status = 'published'
     </select>

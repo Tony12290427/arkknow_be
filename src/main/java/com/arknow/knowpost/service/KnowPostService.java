@@ -12,4 +12,5 @@ public interface KnowPostService {
     void softDelete(long postId, long creatorId);
     KnowPostDetailResponse getDetail(long postId, Long currentUserId);
     FeedPageResponse getMyPosts(long creatorId, int page, int size);
+    FeedPageResponse getFollowingFeed(long userId, int page, int size);
 }
