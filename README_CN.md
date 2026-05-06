@@ -112,8 +112,8 @@
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
-| POST | `/description/suggest` | 是 | AI 生成文章摘要（≤50字） |
-| GET | `/{id}/qa/stream` | 是 | RAG 知识问答（SSE 流式输出） |
+| POST | `/description/suggest` | 是 | AI 生成文章摘要（≤50字，DeepSeek v4-pro） |
+| GET | `/{id}/qa/stream` | 是 | RAG 知识问答（SSE 流式输出，DeepSeek v4-pro） |
 | POST | `/{id}/rag/reindex` | 是 | 重建向量索引 |
 
 ## 快速开始
@@ -258,3 +258,14 @@ com.arknow/
 - **Caffeine L2 精准失效**：只清除包含被操作文章的页面缓存
 - **L0 碎片动态计数**：liked/faved 不进公共缓存，计数变化时删 L0 碎片从 SDS 实时读
 - **SDS 批量读取**：Redis pipeline 一次往返拿整页计数，替代 N 次单条查询
+
+### RAG 知识问答
+- **两级提示词策略**：有文章上下文时基于内容回答 → 无上下文时使用模型自身知识兜底
+- **懒索引**：首次提问触发切段+嵌入，后续提问直接用索引
+- **切段策略**：按二级标题切分，单段最长 1200 字符，段间重叠 200 字符，短段合并
+- **嵌入模型**：OpenAI `text-embedding-3-small`（1536 维，余弦相似度）
+- **向量存储**：Elasticsearch，相似度阈值 0.72 过滤噪音
+- **生成模型**：DeepSeek v4-pro，温度 0.6，SSE 流式输出
+- **AI 摘要**：DeepSeek v4-pro 生成 ≤50 字中文摘要
+- **本地开发存储**：`LocalUploadController` 处理 `/uploads/**` 的 PUT/GET（生产环境走 OSS 预签名 URL）
+- **禁用机械话术**：禁止输出"上下文为空""内容未提及"等模板回复，无上下文时用自身知识正常回答

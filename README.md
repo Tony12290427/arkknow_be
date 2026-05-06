@@ -112,8 +112,8 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/description/suggest` | Yes | AI-generated post summary (≤50 chars) |
-| GET | `/{id}/qa/stream` | Yes | RAG Q&A (SSE streaming) |
+| POST | `/description/suggest` | Yes | AI-generated post summary (≤50 chars, DeepSeek v4-pro) |
+| GET | `/{id}/qa/stream` | Yes | RAG Q&A (SSE streaming, DeepSeek v4-pro) |
 | POST | `/{id}/rag/reindex` | Yes | Rebuild vector index |
 
 ## Quick Start
@@ -258,3 +258,14 @@ com.arknow/
 - **Caffeine L2 precise invalidation**: only clears pages containing the affected entity
 - **L0 fragment dynamic count**: liked/faved excluded from public cache; counter changes delete L0 fragments, forcing SDS batch read
 - **SDS batch read**: Redis pipeline fetches all page counts in one round trip
+
+### RAG Knowledge Q&A
+- **Two-tier prompt strategy**: article context when relevant → model's native knowledge as fallback
+- **Lazy indexing**: first question triggers chunking + embedding; subsequent questions use indexed chunks
+- **Chunking**: H2-heading-based split, max 1200 chars per chunk, 200-char overlap, short sections merged
+- **Embedding model**: OpenAI `text-embedding-3-small` (1536 dimensions, cosine similarity)
+- **Vector store**: Elasticsearch with `similarityThreshold: 0.72` to filter noise
+- **Generation model**: DeepSeek v4-pro with temperature 0.6, SSE streaming output
+- **AI summary**: DeepSeek v4-pro generates ≤50-char Chinese descriptions
+- **Local dev storage**: `LocalUploadController` handles PUT/GET for `/uploads/**` (OSS presigned URLs in production)
+- **Banned response templates**: "上下文为空", "内容未提及", etc. — model uses native knowledge instead

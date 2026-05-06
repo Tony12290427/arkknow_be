@@ -23,6 +23,6 @@ public interface KnowPostMapper {
     int publish(@Param("id") long id, @Param("publishTime") java.time.Instant publishTime);
     int updateContentConfirm(@Param("id") long id, @Param("objectKey") String objectKey,
                              @Param("etag") String etag, @Param("size") long size,
-                             @Param("sha256") String sha256);
+                             @Param("sha256") String sha256, @Param("contentUrl") String contentUrl);
     List<Long> listMyPublishedIds(@Param("creatorId") long creatorId);
 }
