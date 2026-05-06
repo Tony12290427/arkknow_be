@@ -5,22 +5,11 @@ import com.arknow.common.exception.ErrorCode;
 import com.arknow.llm.service.KnowPostDescriptionService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.deepseek.DeepSeekChatOptions;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
 
-/**
- * DeepSeek-backed implementation of {@link KnowPostDescriptionService}.
- * <p>
- * Uses a low-temperature prompt to generate a factual, concise summary.
- * The system prompt instructs the model to output only the description text
- * with no preamble or explanation.
- * <p>
- * Only activated when a {@link ChatClient} bean is available.
- */
 @Service
-@ConditionalOnBean(ChatClient.class)
 public class KnowPostDescriptionServiceImpl implements KnowPostDescriptionService {
 
     private final ChatClient chatClient;
@@ -50,7 +39,7 @@ public class KnowPostDescriptionServiceImpl implements KnowPostDescriptionServic
                     .system(system)
                     .user(user)
                     .options(DeepSeekChatOptions.builder()
-                            .model("deepseek-chat")
+                            .model("deepseek-v4-pro")
                             .temperature(0.8)
                             .maxTokens(120)
                             .build())

@@ -86,7 +86,7 @@
         UPDATE know_posts SET
             content_object_key = #{objectKey}, content_etag = #{etag},
             content_size = #{size}, content_sha256 = #{sha256},
-            update_time = NOW()
+            content_url = #{contentUrl}, update_time = NOW()
         WHERE id = #{id}
     </update>
 

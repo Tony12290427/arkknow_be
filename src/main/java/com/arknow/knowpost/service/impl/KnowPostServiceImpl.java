@@ -63,7 +63,8 @@ public class KnowPostServiceImpl implements KnowPostService {
 
     @Override
     public void confirmContent(long postId, KnowPostContentConfirmRequest request) {
-        mapper.updateContentConfirm(postId, request.objectKey(), request.etag(), request.size(), request.sha256());
+        String contentUrl = "http://localhost:8080/uploads/" + request.objectKey();
+        mapper.updateContentConfirm(postId, request.objectKey(), request.etag(), request.size(), request.sha256(), contentUrl);
     }
 
     @Override

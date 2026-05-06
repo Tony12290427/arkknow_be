@@ -22,12 +22,18 @@ spring:
     uris: http://localhost:9200
   autoconfigure:
     exclude:
-      - org.springframework.ai.autoconfigure.vectorstore.elasticsearch.ElasticsearchVectorStoreAutoConfiguration
   ai:
+    vectorstore:
+      elasticsearch:
+        initialize-schema: true
+        index-name: arknow-rag-index
     openai:
-      api-key: fake-dev-key
+      api-key: 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
+      embedding:
+        api-key: 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
     deepseek:
-      api-key: ${DEEPSEEK_API_KEY:fake-dev-key}
+      api-key: sk-5627012ffbe14260b0c9e290c0293315
+      base-url: https://api.deepseek.com
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

@@ -4,7 +4,6 @@ import com.arknow.knowpost.api.dto.DescriptionSuggestRequest;
 import com.arknow.knowpost.api.dto.DescriptionSuggestResponse;
 import com.arknow.llm.service.KnowPostDescriptionService;
 import jakarta.validation.Valid;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping(path = "/api/v1/knowposts", produces = MediaType.APPLICATION_JSON_VALUE)
-@ConditionalOnBean(KnowPostDescriptionService.class)
 public class KnowPostAiController {
 
     private final KnowPostDescriptionService descriptionService;
