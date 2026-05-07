@@ -9,6 +9,8 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -102,7 +104,7 @@ public class CounterAggregationConsumer {
      */
     @Scheduled(fixedDelay = 1000)
     public void flush() {
-        Set<String> keys = redis.keys("agg:" + CounterSchema.SCHEMA_ID + ":*");
+        Set<String> keys = scanKeys("agg:" + CounterSchema.SCHEMA_ID + ":*");
         if (keys == null || keys.isEmpty()) return;
 
         DefaultRedisScript<Long> incrScript = new DefaultRedisScript<>(SDS_INCR_LUA, Long.class);
@@ -146,5 +148,21 @@ public class CounterAggregationConsumer {
                 redis.delete(aggKey);
             }
         }
+    }
+
+    /** Non-blocking SCAN-based key lookup. Never use KEYS in production. */
+    private Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        redis.execute((org.springframework.data.redis.core.RedisCallback<Void>) connection -> {
+            var scanOpts = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                    .match(pattern).count(100).build();
+            try (var c = connection.keyCommands().scan(scanOpts)) {
+                while (c.hasNext()) {
+                    keys.add(new String(c.next(), StandardCharsets.UTF_8));
+                }
+            } catch (Exception ignored) {}
+            return null;
+        });
+        return keys;
     }
 }

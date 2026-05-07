@@ -4,6 +4,7 @@ import com.arknow.auth.token.JwtService;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -43,9 +44,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/send-code", "/api/v1/auth/register",
                     "/api/v1/auth/login", "/api/v1/auth/token/refresh",
                     "/api/v1/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/profile/*").permitAll()
                 .requestMatchers("/api/v1/auth/me", "/api/v1/profile/**",
                     "/api/v1/knowposts/drafts", "/api/v1/knowposts/*/publish",
                     "/api/v1/knowposts/*/content/confirm", "/api/v1/knowposts/mine",
+                    "/api/v1/knowposts/liked", "/api/v1/knowposts/faved",
+                    "/api/v1/notifications/**",
                     "/api/v1/storage/presign",
                     "/api/v1/relation/**",
                     "/api/v1/action/**").authenticated()

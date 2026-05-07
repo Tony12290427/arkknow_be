@@ -10,7 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class RagIndexService {
@@ -18,11 +21,16 @@ public class RagIndexService {
 
     private final Optional<VectorStore> vectorStore;
     private final KnowPostMapper knowPostMapper;
+    private final StringRedisTemplate redis;
     private final RestTemplate http = new RestTemplate();
 
-    public RagIndexService(Optional<VectorStore> vectorStore, KnowPostMapper knowPostMapper) {
+    private static final String FINGERPRINT_KEY_PREFIX = "rag:fp:";
+
+    public RagIndexService(Optional<VectorStore> vectorStore, KnowPostMapper knowPostMapper,
+                           StringRedisTemplate redis) {
         this.vectorStore = vectorStore;
         this.knowPostMapper = knowPostMapper;
+        this.redis = redis;
     }
 
     public boolean isAvailable() {
@@ -89,6 +97,11 @@ public class RagIndexService {
         }
         try {
             vectorStore.orElseThrow().add(docs);
+            // Store fingerprint to skip redundant reindexing (7-day TTL)
+            String fp = currentSha != null ? currentSha : currentEtag;
+            if (fp != null) {
+                redis.opsForValue().set(FINGERPRINT_KEY_PREFIX + postId, fp, 7, TimeUnit.DAYS);
+            }
         } catch (Exception e) {
             log.error("VectorStore add failed: {}", e.getMessage());
             return 0;
@@ -98,13 +111,15 @@ public class RagIndexService {
 
     /**
      * Checks whether an already-indexed version matches the current content.
-     * <p>
-     * Currently returns false (always re-index) as a safe default.
-     * With ES 9.x properly configured, this would compare SHA-256 or ETag fingerprints
-     * against the existing indexed documents to skip redundant indexing.
+     * Compares the stored fingerprint (SHA-256 or ETag) in Redis against the current values.
+     * Returns true only if the fingerprint matches (skip reindex).
      */
     private boolean isUpToDate(long postId, String currentSha, String currentEtag) {
-        return false; // Always re-index for safety in MVP
+        String fp = redis.opsForValue().get(FINGERPRINT_KEY_PREFIX + postId);
+        if (fp == null) return false;
+        if (currentSha != null && fp.equals(currentSha)) return true;
+        if (currentEtag != null && fp.equals(currentEtag)) return true;
+        return false;
     }
 
     /**

@@ -81,6 +81,21 @@ public class UserCounterServiceImpl implements UserCounterService {
         incrementField(userId, 1, delta);
     }
 
+    @Override
+    public void incrementPosts(long userId, int delta) {
+        incrementField(userId, 2, delta);
+    }
+
+    @Override
+    public void incrementLikedPosts(long userId, int delta) {
+        incrementField(userId, 3, delta);
+    }
+
+    @Override
+    public void incrementFavedPosts(long userId, int delta) {
+        incrementField(userId, 4, delta);
+    }
+
     private void incrementField(long userId, int idx, int delta) {
         DefaultRedisScript<Long> incrScript = new DefaultRedisScript<>(SDS_INCR_LUA, Long.class);
         redis.execute(incrScript, List.of(UserCounterKeys.sdsKey(userId)),

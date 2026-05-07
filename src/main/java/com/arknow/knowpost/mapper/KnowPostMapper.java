@@ -27,4 +27,5 @@ public interface KnowPostMapper {
     List<Long> listMyPublishedIds(@Param("creatorId") long creatorId);
     List<KnowPostFeedRow> listFeedByFollowing(@Param("userId") long userId, @Param("limit") int limit, @Param("offset") int offset);
     KnowPostFeedRow getFeedRowById(@Param("id") long id);
+    List<KnowPostFeedRow> listFeedByIds(@Param("ids") List<Long> ids);
 }

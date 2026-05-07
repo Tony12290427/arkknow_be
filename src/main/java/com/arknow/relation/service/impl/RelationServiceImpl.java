@@ -1,5 +1,9 @@
 package com.arknow.relation.service.impl;
 
+import com.arknow.counter.service.UserCounterService;
+import com.arknow.notification.mapper.NotificationMapper;
+import com.arknow.notification.model.Notification;
+import com.arknow.knowpost.id.SnowflakeIdGenerator;
 import com.arknow.profile.api.dto.ProfileResponse;
 import com.arknow.relation.event.RelationEvent;
 import com.arknow.relation.mapper.RelationMapper;
@@ -44,6 +48,9 @@ public class RelationServiceImpl implements RelationService {
     private final RelationEventProcessor processor;
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
+    private final NotificationMapper notifMapper;
+    private final SnowflakeIdGenerator idGen;
+    private final UserCounterService userCounterService;
 
     /** Lua script for token bucket rate limiting. */
     private static final String TOKEN_BUCKET_LUA = """
@@ -71,12 +78,16 @@ public class RelationServiceImpl implements RelationService {
 
     public RelationServiceImpl(RelationMapper relationMapper, OutboxMapper outboxMapper,
                                 RelationEventProcessor processor, StringRedisTemplate redis,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper, NotificationMapper notifMapper,
+                                SnowflakeIdGenerator idGen, UserCounterService userCounterService) {
         this.relationMapper = relationMapper;
         this.outboxMapper = outboxMapper;
         this.processor = processor;
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.notifMapper = notifMapper;
+        this.idGen = idGen;
+        this.userCounterService = userCounterService;
     }
 
     /**
@@ -103,10 +114,28 @@ public class RelationServiceImpl implements RelationService {
         if (relationMapper.existsFollowing(fromUserId, toUserId)) return false;
 
         long id = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
-        int inserted = relationMapper.insertFollowing(id, fromUserId, toUserId, 1);
+        int inserted;
+        try {
+            inserted = relationMapper.insertFollowing(id, fromUserId, toUserId, 1);
+        } catch (Exception e) {
+            // Race condition: duplicate insert between check and write
+            return false;
+        }
 
         if (inserted > 0) {
             writeOutboxEvent("FollowCreated", fromUserId, toUserId, id);
+            try {
+                userCounterService.incrementFollowings(fromUserId, 1);
+                userCounterService.incrementFollowers(toUserId, 1);
+            } catch (Exception ignored) {}
+            try {
+                Notification n = new Notification();
+                n.setId(idGen.nextId());
+                n.setUserId(toUserId);
+                n.setType("follow");
+                n.setActorId(fromUserId);
+                notifMapper.insert(n);
+            } catch (Exception ignored) {}
             return true;
         }
         return false;
@@ -114,8 +143,6 @@ public class RelationServiceImpl implements RelationService {
 
     /**
      * Unfollows a user.
-     * <p>
-     * Cancels the following row and writes an outbox event in one transaction.
      */
     @Override
     @Transactional
@@ -124,6 +151,10 @@ public class RelationServiceImpl implements RelationService {
         if (updated > 0) {
             long id = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
             writeOutboxEvent("FollowCanceled", fromUserId, toUserId, id);
+            try {
+                userCounterService.incrementFollowings(fromUserId, -1);
+                userCounterService.incrementFollowers(toUserId, -1);
+            } catch (Exception ignored) {}
             return true;
         }
         return false;
