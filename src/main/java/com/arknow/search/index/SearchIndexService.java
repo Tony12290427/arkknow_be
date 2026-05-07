@@ -92,6 +92,9 @@ public class SearchIndexService {
             doc.put("author_tag_json", row.getAuthorTagJson());
             doc.put("tags", parseArray(row.getTags()));
             doc.put("status", row.getStatus());
+            // Extract first cover image from img_urls JSON array
+            String coverImage = parseFirstImg(row.getImgUrls());
+            if (coverImage != null) doc.put("coverImage", coverImage);
             if (row.getIsTop() != null) doc.put("is_top", row.getIsTop());
 
             String body = fetchContentSafe(row.getContentUrl());
@@ -168,5 +171,10 @@ public class SearchIndexService {
         if (json == null || json.isBlank()) return List.of();
         try { return objectMapper.readValue(json, new TypeReference<List<String>>() {}); }
         catch (Exception e) { return List.of(); }
+    }
+
+    private String parseFirstImg(String imgUrls) {
+        List<?> list = parseArray(imgUrls);
+        return list.isEmpty() ? null : String.valueOf(list.get(0));
     }
 }
