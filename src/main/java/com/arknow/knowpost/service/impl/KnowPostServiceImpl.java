@@ -3,6 +3,7 @@ package com.arknow.knowpost.service.impl;
 import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
 import com.arknow.counter.service.CounterService;
+import com.arknow.counter.service.UserCounterService;
 import com.arknow.knowpost.api.dto.*;
 import com.arknow.knowpost.id.SnowflakeIdGenerator;
 import com.arknow.knowpost.mapper.KnowPostMapper;
@@ -15,7 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Knowledge post CRUD and lifecycle management.
@@ -37,14 +41,20 @@ public class KnowPostServiceImpl implements KnowPostService {
     private final SnowflakeIdGenerator idGen;
     private final CounterService counterService;
     private final SearchIndexService searchIndexService;
+    private final StringRedisTemplate redis;
+    private final UserCounterService userCounterService;
 
     public KnowPostServiceImpl(KnowPostMapper mapper, SnowflakeIdGenerator idGen,
                                 CounterService counterService,
-                                @Autowired(required = false) SearchIndexService searchIndexService) {
+                                @Autowired(required = false) SearchIndexService searchIndexService,
+                                StringRedisTemplate redis,
+                                UserCounterService userCounterService) {
         this.mapper = mapper;
         this.idGen = idGen;
         this.counterService = counterService;
         this.searchIndexService = searchIndexService;
+        this.redis = redis;
+        this.userCounterService = userCounterService;
     }
 
     @Override
@@ -96,6 +106,12 @@ public class KnowPostServiceImpl implements KnowPostService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "只能发布草稿状态的内容");
         }
         mapper.publish(postId, java.time.Instant.now());
+        // Increment user post counter (log error but don't block publish)
+        try {
+            userCounterService.incrementPosts(post.getCreatorId(), 1);
+        } catch (Exception e) {
+            log.warn("Failed to increment post counter for user {}: {}", post.getCreatorId(), e.getMessage());
+        }
         // Sync to ES search index (no-op if ES not configured)
         if (searchIndexService != null) {
             try { searchIndexService.upsertKnowPost(postId); } catch (Exception ignored) {}
@@ -138,6 +154,7 @@ public class KnowPostServiceImpl implements KnowPostService {
                 row.getId(), row.getTitle(), row.getDescription(), row.getContentUrl(),
                 parseArray(row.getImgUrls()), parseArray(row.getTags()),
                 row.getAuthorAvatar(), row.getAuthorNickname(), row.getAuthorTagJson(),
+                row.getCreatorId(),
                 counts.getOrDefault("like", 0L), counts.getOrDefault("fav", 0L),
                 liked, faved, row.getIsTop(), row.getVisible(), row.getType(), row.getPublishTime());
     }
@@ -165,6 +182,52 @@ public class KnowPostServiceImpl implements KnowPostService {
         if (hasMore) rows = rows.subList(0, safeSize);
 
         List<FeedItemResponse> items = rows.stream().map(r -> toFeedItem(r, creatorId)).toList();
+        return new FeedPageResponse(items, safePage, safeSize, hasMore);
+    }
+
+    @Override
+    public FeedPageResponse getLikedPosts(long userId, int page, int size) {
+        return getPostsByRedisSet("user:likes:" + userId, userId, page, size);
+    }
+
+    @Override
+    public FeedPageResponse getFavedPosts(long userId, int page, int size) {
+        return getPostsByRedisSet("user:favs:" + userId, userId, page, size);
+    }
+
+    private FeedPageResponse getPostsByRedisSet(String redisKey, long userId, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        int safePage = Math.max(page, 1);
+        int offset = (safePage - 1) * safeSize;
+
+        // Get all post IDs from Redis Set (sorted by insertion order = most recent first)
+        Set<String> rawIds = redis.opsForSet().members(redisKey);
+        if (rawIds == null || rawIds.isEmpty()) {
+            return new FeedPageResponse(List.of(), safePage, safeSize, false);
+        }
+
+        // Sort by ID descending (approximate recency) and paginate
+        List<Long> allIds = rawIds.stream()
+                .map(Long::parseLong)
+                .sorted(Comparator.reverseOrder())
+                .collect(Collectors.toList());
+
+        int end = Math.min(offset + safeSize + 1, allIds.size());
+        List<Long> pageIds = allIds.subList(offset, Math.min(end, allIds.size()));
+        boolean hasMore = end < allIds.size();
+
+        // Limit to safeSize+1 for hasMore detection
+        if (pageIds.size() > safeSize) {
+            pageIds = pageIds.subList(0, safeSize);
+            hasMore = true;
+        }
+
+        if (pageIds.isEmpty()) {
+            return new FeedPageResponse(List.of(), safePage, safeSize, hasMore);
+        }
+
+        List<KnowPostFeedRow> rows = mapper.listFeedByIds(pageIds);
+        List<FeedItemResponse> items = rows.stream().map(r -> toFeedItem(r, userId)).toList();
         return new FeedPageResponse(items, safePage, safeSize, hasMore);
     }
 

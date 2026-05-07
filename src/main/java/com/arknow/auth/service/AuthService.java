@@ -117,7 +117,7 @@ public class AuthService {
                 .phone(request.identifierType() == IdentifierType.PHONE ? identifier : null)
                 .email(request.identifierType() == IdentifierType.EMAIL ? identifier : null)
                 .nickname(generateNickname())
-                .avatar("https://static.arkknow.com/default-avatar.png")
+                .avatar(null)
                 .bio(null)
                 .tagsJson("[]")
                 .build();

@@ -34,6 +34,7 @@
             kp.img_urls, kp.tags, kp.is_top, kp.visible, kp.type,
             kp.status, kp.publish_time, kp.content_object_key,
             kp.content_etag, kp.content_size, kp.content_sha256,
+            kp.creator_id AS creator_id,
             u.avatar AS author_avatar, u.nickname AS author_nickname,
             u.tags_json AS author_tag_json,
             0 AS like_count, 0 AS favorite_count
@@ -116,8 +117,25 @@
         WHERE kp.id = #{id}
     </select>
 
-    <select id="listMyPublishedIds" resultType="long">
-        SELECT id FROM know_posts WHERE creator_id = #{creatorId} AND status = 'published'
+    <select id="listFeedByIds" resultType="com.arknow.knowpost.model.KnowPostFeedRow">
+        SELECT
+            kp.id, kp.title, kp.description, kp.img_urls,
+            kp.tags, kp.is_top, kp.visible, kp.type,
+            u.avatar AS author_avatar, u.nickname AS author_nickname,
+            u.tags_json AS author_tag_json,
+            0 AS like_count, 0 AS favorite_count
+        FROM know_posts kp
+        JOIN users u ON kp.creator_id = u.id
+        WHERE kp.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND kp.status != 'deleted'
+        ORDER BY FIELD(kp.id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
     </select>
 
 </mapper>

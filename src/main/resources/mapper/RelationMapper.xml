@@ -7,6 +7,7 @@
     <insert id="insertFollowing">
         INSERT INTO following (id, from_user_id, to_user_id, rel_status, created_at, updated_at)
         VALUES (#{id}, #{fromUserId}, #{toUserId}, #{relStatus}, NOW(3), NOW(3))
+        ON DUPLICATE KEY UPDATE rel_status = 1, updated_at = NOW(3)
     </insert>
 
     <update id="cancelFollowing">

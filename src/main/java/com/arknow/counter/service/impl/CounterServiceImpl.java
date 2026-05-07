@@ -274,10 +274,10 @@ public class CounterServiceImpl implements CounterService {
         return result;
     }
 
-    /** Pipelined BITCOUNT across all bitmap shards for a given metric + entity. */
+    /** Pipelined BITCOUNT across all bitmap shards for a given metric + entity. Uses SCAN to avoid blocking Redis. */
     private long bitCountShards(String metric, String etype, String eid) {
         String pattern = String.format("bm:%s:%s:%s:*", metric, etype, eid);
-        Set<String> keys = redis.keys(pattern);
+        Set<String> keys = scanKeys(pattern);
         if (keys == null || keys.isEmpty()) return 0L;
 
         List<Object> res = redis.executePipelined((RedisCallback<Object>) connection -> {
@@ -291,6 +291,24 @@ public class CounterServiceImpl implements CounterService {
             if (o instanceof Number n) sum += n.longValue();
         }
         return sum;
+    }
+
+    /** Non-blocking SCAN-based key lookup. Never use KEYS in production. */
+    private Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        try {
+            redis.execute((RedisCallback<Void>) connection -> {
+                var scanOpts = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match(pattern).count(100).build();
+                try (var c = connection.keyCommands().scan(scanOpts)) {
+                    while (c.hasNext()) {
+                        keys.add(new String(c.next(), StandardCharsets.UTF_8));
+                    }
+                } catch (Exception ignored) {}
+                return null;
+            });
+        } catch (Exception ignored) {}
+        return keys;
     }
 
     /** Writes raw bytes to a Redis key. */

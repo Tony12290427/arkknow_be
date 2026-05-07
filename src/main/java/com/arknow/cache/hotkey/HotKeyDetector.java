@@ -98,8 +98,15 @@ public class HotKeyDetector {
     public void rotate() {
         int next = (current.get() + 1) % segments;
         current.set(next);
-        for (int[] arr : counters.values()) {
+        // Zero out the new segment and remove stale entries with zero total heat
+        var it = counters.entrySet().iterator();
+        while (it.hasNext()) {
+            var entry = it.next();
+            int[] arr = entry.getValue();
             if (next < arr.length) arr[next] = 0;
+            int sum = 0;
+            for (int v : arr) sum += v;
+            if (sum == 0) it.remove();
         }
     }
 

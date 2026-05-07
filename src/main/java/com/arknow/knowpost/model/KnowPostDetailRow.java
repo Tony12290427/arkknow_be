@@ -17,6 +17,7 @@ public class KnowPostDetailRow {
     private String type;
     private String publishTime;
     private String status;
+    private Long creatorId;
     private String contentObjectKey;
     private String contentEtag;
     private Long contentSize;
@@ -54,6 +55,8 @@ public class KnowPostDetailRow {
     public void setPublishTime(String publishTime) { this.publishTime = publishTime; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Long getCreatorId() { return creatorId; }
+    public void setCreatorId(Long creatorId) { this.creatorId = creatorId; }
     public String getContentObjectKey() { return contentObjectKey; }
     public void setContentObjectKey(String contentObjectKey) { this.contentObjectKey = contentObjectKey; }
     public String getContentEtag() { return contentEtag; }
