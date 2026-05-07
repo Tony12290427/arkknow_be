@@ -12,6 +12,8 @@ import com.arknow.knowpost.model.KnowPostDetailRow;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import com.arknow.knowpost.service.KnowPostService;
 import com.arknow.search.index.SearchIndexService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +39,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class KnowPostServiceImpl implements KnowPostService {
+    private static final Logger log = LoggerFactory.getLogger(KnowPostServiceImpl.class);
+
     private final KnowPostMapper mapper;
     private final SnowflakeIdGenerator idGen;
     private final CounterService counterService;
