@@ -143,7 +143,8 @@ public class AiSearchService {
             .doOnNext(rawText::append)
             .concatWith(Flux.defer(() -> {
                 String html = markdownRenderer.render(rawText.toString());
-                return Flux.just("[HTML]" + html);
+                // Remove newlines so SSE doesn't split the HTML across multiple data: lines
+                return Flux.just("[HTML]" + html.replace("\n", ""));
             }));
 
         Flux<String> articles = Flux.just(
