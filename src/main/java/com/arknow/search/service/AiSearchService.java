@@ -1,5 +1,6 @@
 package com.arknow.search.service;
 
+import com.arknow.counter.service.CounterService;
 import com.arknow.knowpost.mapper.KnowPostMapper;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import org.slf4j.Logger;
@@ -39,12 +40,14 @@ public class AiSearchService {
     private final Optional<VectorStore> vectorStore;
     private final ChatClient chatClient;
     private final KnowPostMapper knowPostMapper;
+    private final CounterService counterService;
 
     public AiSearchService(Optional<VectorStore> vectorStore, ChatClient chatClient,
-                           KnowPostMapper knowPostMapper) {
+                           KnowPostMapper knowPostMapper, CounterService counterService) {
         this.vectorStore = vectorStore;
         this.chatClient = chatClient;
         this.knowPostMapper = knowPostMapper;
+        this.counterService = counterService;
     }
 
     public Flux<String> searchStream(String query, int topK) {
@@ -74,19 +77,24 @@ public class AiSearchService {
             ? ids.stream().map(id -> knowPostMapper.getFeedRowById(id)).filter(Objects::nonNull).toList()
             : knowPostMapper.listFeedByIds(ids);
 
-        // Build article JSON
+        // Build article JSON with real counts
         StringBuilder articlesJson = new StringBuilder("[");
         for (int i = 0; i < rows.size(); i++) {
             KnowPostFeedRow r = rows.get(i);
             if (i > 0) articlesJson.append(",");
             String img = parseFirstImg(r.getImgUrls());
+            Map<String, Long> counts = counterService.getCounts("knowpost", r.getId(), List.of("like", "fav"));
+            long likeCount = counts.getOrDefault("like", 0L);
+            long favCount = counts.getOrDefault("fav", 0L);
             articlesJson.append("{")
                 .append("\"id\":\"").append(r.getId()).append("\",")
                 .append("\"title\":\"").append(escapeJson(r.getTitle())).append("\",")
                 .append("\"description\":\"").append(escapeJson(r.getDescription())).append("\",")
                 .append("\"coverImage\":").append(img != null ? "\"" + escapeJson(img) + "\"" : "null").append(",")
                 .append("\"authorNickname\":\"").append(escapeJson(r.getAuthorNickname())).append("\",")
-                .append("\"likeCount\":0,\"favoriteCount\":0,\"liked\":false,\"faved\":false")
+                .append("\"likeCount\":").append(likeCount).append(",")
+                .append("\"favoriteCount\":").append(favCount).append(",")
+                .append("\"liked\":false,\"faved\":false")
                 .append("}");
         }
         articlesJson.append("]");
