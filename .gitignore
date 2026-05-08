@@ -11,3 +11,9 @@ target/
 *.swp
 *.swo
 uploads/
+.env
+*.pem
+!*.public.pem
+!public.pem
+keys/private.pem
+src/main/resources/keys/private.pem
