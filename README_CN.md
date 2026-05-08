@@ -4,6 +4,8 @@
 
 基于 Java 21 + Spring Boot 3.2.4 构建的知识获取与分享社区平台。
 
+> 📐 **架构设计文档**: 参见 [ARCHITECTURE.md](./ARCHITECTURE.md) — 完整系统架构、AI 搜索流水线、高并发优化、性能数据。
+
 ## 技术栈
 
 | 组件 | 技术 | 版本 |
@@ -18,6 +20,11 @@
 | 搜索引擎 | Elasticsearch | 9.0.0 (Docker) |
 | 中文分词 | smartcn | ES 内置 |
 | AI 集成 | Spring AI | 1.0.3 |
+| 大语言模型 | DeepSeek v4-pro | — |
+| 嵌入模型 | OpenAI text-embedding-3-small | — |
+| Markdown→HTML | flexmark-java | 0.64.8 |
+| 熔断降级 | Resilience4j | 2.2.0 |
+| 本地缓存 | Caffeine | 3.x |
 | 构建工具 | Maven | Latest |
 
 ## 功能模块
@@ -30,8 +37,14 @@
 - 自定义滑动窗口热键探测
 - Kafka 异步写聚合（点赞/收藏计数）
 - 分片位图实现幂等判重
-- Elasticsearch 全文搜索
+- Elasticsearch BM25 全文检索 + 向量语义搜索
+- **混合 AI 搜索**: BM25 + OpenAI Embedding → RRF 融合排序 → DeepSeek LLM 流式回答
+- Caffeine L1 + Redis L2 两级缓存（AI 搜索命中率 >60%）
+- Resilience4j 熔断 + 重试x3 + 15s 超时保护（DeepSeek API）
+- Redis 令牌桶限流（AI 搜索: 10次/分钟/IP）
+- CompletableFuture 并行查询（ES + 向量同时执行）
 - RAG 知识问答（集成 DeepSeek AI）
+- Reactor SSE 流式输出 AI 回答
 
 ## API 接口
 
@@ -101,12 +114,13 @@
 |------|------|------|------|
 | POST | `/presign` | 是 | 获取 OSS 预签名上传 URL |
 
-### 搜索 (`/api/v1/search`)
+### AI 搜索 (`/api/v1/search`)
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
-| GET | `/` | 否 | 全文搜索（BM25 + function_score） |
-| GET | `/suggest` | 否 | 前缀补全建议 |
+| GET | `/ai?q=&topK=` | 否 | **混合 AI 搜索**: BM25+向量 RRF → DeepSeek SSE流(回答+文章) |
+| GET | `/suggest?prefix=` | 否 | 前缀补全建议 |
+| GET | `/?keyword=` | 否 | 传统全文搜索 |
 
 ### RAG AI (`/api/v1/knowposts`)
 
@@ -199,10 +213,13 @@ com.arknow/
 │   └── config/     # OssProperties
 ├── search/         # Elasticsearch 搜索
 │   ├── api/        # SearchController + DTO
+│   ├── cache/      # AiSearchCache（Caffeine + Redis 两级缓存）
 │   ├── index/      # SearchIndexService
-│   └── service/    # SearchService
+│   ├── ratelimit/  # AiSearchRateLimiter（Redis 令牌桶）
+│   └── service/    # SearchService, AiSearchService
 ├── llm/            # AI/LLM 集成
 │   ├── rag/        # RagIndexService, RagQueryService
+│   ├── MarkdownRenderer.java  # flexmark HTML 渲染
 │   └── service/    # KnowPostDescriptionService
 ├── cache/          # 缓存基础设施
 │   ├── config/     # CacheConfig, CacheProperties
@@ -252,6 +269,17 @@ com.arknow/
 - **多策略查询**：match_phrase（精准）+ multi_match（广召回）+ MostFields 策略
 - **function_score**：BM25 文本相关性 + 点赞数业务权重
 - **发布即索引**：新文章发布后自动同步到 ES，立即可搜
+
+### AI 混合搜索
+- **BM25 + 向量 RRF 融合**：关键词匹配 + 语义相似度双路检索，RRF 倒数秩融合排序（k=60）
+- **LLM 流式总结**：DeepSeek v4-pro 基于检索结果生成结构化回答（标题、表格、列表）
+- **SSE 流式输出**：Reactor Flux → SSE 实时推送，前端流式渲染 Markdown
+- **Markdown→HTML 服务端渲染**：flexmark-java GFM 表格 + 排版扩展，XSS 安全（ESCAPE_HTML）
+- **两级缓存**：Caffeine L1 (1000条/10min) + Redis L2 (1h TTL)，命中率 >60%
+- **并行查询**：CompletableFuture 同时执行 ES + 向量查询
+- **熔断保护**：Resilience4j 熔断器（50% 失败率→开路 30s）+ 重试x3 + 15s 超时
+- **令牌桶限流**：Redis Lua 脚本，10次/分钟/IP
+- **全量向量索引**：110 篇文章全部回填 OpenAI Embedding 向量
 
 ### 乐观更新 + 精准缓存失效
 - **前端乐观更新**：TanStack Query onMutate 立即更新 UI，onError 回滚
