@@ -4,6 +4,8 @@
 
 A knowledge acquisition and sharing community platform built with Java 21 + Spring Boot 3.2.4.
 
+> 📐 **Architecture & Design**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for full system architecture, AI search pipeline, performance optimizations, and high-concurrency design decisions.
+
 ## Tech Stack
 
 | Component | Technology | Version |
@@ -18,6 +20,11 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 | Search Engine | Elasticsearch | 9.0.0 (Docker) |
 | Chinese Tokenizer | smartcn | Built-in |
 | AI Integration | Spring AI | 1.0.3 |
+| LLM | DeepSeek v4-pro | — |
+| Embedding | OpenAI text-embedding-3-small | — |
+| Markdown → HTML | flexmark-java | 0.64.8 |
+| Circuit Breaker | Resilience4j | 2.2.0 |
+| In-Memory Cache | Caffeine | 3.x |
 | Build Tool | Maven | Latest |
 
 ## Features
@@ -30,8 +37,14 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 - Custom sliding-window hotkey detection
 - Kafka async write aggregation for like/favorite counters
 - Sharded bitmap for idempotent user state tracking
-- Elasticsearch-based full-text search
+- Elasticsearch BM25 full-text search + Vector semantic search
+- **Hybrid AI Search**: BM25 + OpenAI Embedding vector → RRF fusion → DeepSeek LLM streaming answer
+- Caffeine L1 + Redis L2 two-level cache for AI search (60%+ hit rate)
+- Resilience4j circuit breaker + retry + timeout for LLM API calls
+- Redis token-bucket rate limiting (AI search: 10 req/min/IP)
+- CompletableFuture parallel search queries
 - RAG knowledge Q&A with DeepSeek AI
+- Reactive streaming (SSE) for AI answer output
 
 ## API Endpoints
 
@@ -107,6 +120,14 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 |--------|------|------|-------------|
 | GET | `/` | No | Full-text search (BM25 + function_score) |
 | GET | `/suggest` | No | Prefix completion suggestions |
+
+### AI Search (`/api/v1/search`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/ai?q=&topK=` | No | **Hybrid AI search**: BM25 + Vector RRF → DeepSeek SSEx(answer + articles) |
+| GET | `/suggest?prefix=` | No | Typeahead completion suggestions |
+| GET | `/?keyword=` | No | Traditional full-text search |
 
 ### RAG AI (`/api/v1/knowposts`)
 
