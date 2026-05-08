@@ -5,6 +5,7 @@ import com.arknow.llm.MarkdownRenderer;
 import com.arknow.knowpost.mapper.KnowPostMapper;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import com.arknow.search.api.dto.SearchResponse;
+import com.arknow.search.cache.AiSearchCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,8 +15,11 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,26 +50,38 @@ public class AiSearchService {
     private final MarkdownRenderer markdownRenderer;
 
     private final SearchService searchService;
+    private final AiSearchCache cache;
 
     public AiSearchService(Optional<VectorStore> vectorStore, ChatClient chatClient,
                            KnowPostMapper knowPostMapper, CounterService counterService,
-                           MarkdownRenderer markdownRenderer, SearchService searchService) {
+                           MarkdownRenderer markdownRenderer, SearchService searchService,
+                           AiSearchCache cache) {
         this.vectorStore = vectorStore;
         this.chatClient = chatClient;
         this.knowPostMapper = knowPostMapper;
         this.counterService = counterService;
         this.markdownRenderer = markdownRenderer;
         this.searchService = searchService;
+        this.cache = cache;
     }
 
     private static final int RRF_K = 60;
 
     public Flux<String> searchStream(String query, int topK) {
-        // 1. ES keyword search
-        List<SearchResponse> esResults = searchService.search(query, null, 1, Math.min(topK * 3, 30));
+        // Check cache first
+        String cached = cache.get(query);
+        if (cached != null) {
+            return Flux.just(cached, "[DONE]");
+        }
 
-        // 2. Vector semantic search
-        List<Document> vectorDocs = searchVector(query, topK * 3);
+        // Parallel: ES keyword search + vector semantic search
+        CompletableFuture<List<SearchResponse>> esFuture = CompletableFuture.supplyAsync(
+            () -> searchService.search(query, null, 1, Math.min(topK * 3, 30)));
+        CompletableFuture<List<Document>> vectorFuture = CompletableFuture.supplyAsync(
+            () -> searchVector(query, topK * 3));
+
+        List<SearchResponse> esResults = esFuture.join();
+        List<Document> vectorDocs = vectorFuture.join();
 
         // 3. RRF fusion: merge keyword ranks + vector ranks
         Map<String, Double> rrfScores = new LinkedHashMap<>();
@@ -167,17 +183,18 @@ public class AiSearchService {
             .content();
 
         StringBuilder rawText = new StringBuilder();
+        String articlesStr = "[ARTICLES]" + articlesJson.toString();
         Flux<String> answerWithHtml = answerStream
             .doOnNext(rawText::append)
             .concatWith(Flux.defer(() -> {
                 String html = markdownRenderer.render(rawText.toString());
-                return Flux.just("[HTML]" + html.replace("\n", ""));
+                String htmlEvent = "[HTML]" + html.replace("\n", "");
+                // Cache: store full response (HTML + articles) keyed by query
+                cache.put(query, htmlEvent + "\n" + articlesStr + "\n[DONE]");
+                return Flux.just(htmlEvent);
             }));
 
-        Flux<String> articles = Flux.just(
-            "[ARTICLES]" + articlesJson.toString(),
-            "[DONE]"
-        );
+        Flux<String> articles = Flux.just(articlesStr, "[DONE]");
 
         return Flux.concat(answerWithHtml, articles);
     }
