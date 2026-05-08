@@ -4,6 +4,7 @@ import com.arknow.counter.service.CounterService;
 import com.arknow.llm.MarkdownRenderer;
 import com.arknow.knowpost.mapper.KnowPostMapper;
 import com.arknow.knowpost.model.KnowPostFeedRow;
+import com.arknow.search.api.dto.SearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -44,44 +45,34 @@ public class AiSearchService {
     private final CounterService counterService;
     private final MarkdownRenderer markdownRenderer;
 
+    private final SearchService searchService;
+
     public AiSearchService(Optional<VectorStore> vectorStore, ChatClient chatClient,
                            KnowPostMapper knowPostMapper, CounterService counterService,
-                           MarkdownRenderer markdownRenderer) {
+                           MarkdownRenderer markdownRenderer, SearchService searchService) {
         this.vectorStore = vectorStore;
         this.chatClient = chatClient;
         this.knowPostMapper = knowPostMapper;
         this.counterService = counterService;
         this.markdownRenderer = markdownRenderer;
+        this.searchService = searchService;
     }
 
     public Flux<String> searchStream(String query, int topK) {
-        if (vectorStore.isEmpty()) {
-            return Flux.just("[DONE]");
-        }
+        // 1. ES keyword search — full coverage of all published articles
+        List<SearchResponse> esResults = searchService.search(query, null, 1, Math.min(topK * 2, 20));
 
-        // 1. Vector search across all posts
-        List<Document> docs = searchVector(query, topK * 3);
-
-        // 2. Deduplicate by postId, collect unique post IDs + best chunks per post
-        Map<String, List<Document>> byPost = new LinkedHashMap<>();
-        for (Document d : docs) {
-            Object pid = d.getMetadata().get("postId");
-            if (pid == null) continue;
-            byPost.computeIfAbsent(String.valueOf(pid), k -> new ArrayList<>()).add(d);
-        }
-
-        List<String> postIds = new ArrayList<>(byPost.keySet());
-        if (postIds.isEmpty()) {
+        if (esResults.isEmpty()) {
             return Flux.just("未找到相关内容，请尝试其他关键词。", "[ARTICLES]{\"items\":[]}", "[DONE]");
         }
 
-        // 3. Fetch post metadata from DB
-        List<Long> ids = postIds.stream().map(Long::parseLong).collect(Collectors.toList());
-        List<KnowPostFeedRow> rows = ids.size() <= 1
-            ? ids.stream().map(id -> knowPostMapper.getFeedRowById(id)).filter(Objects::nonNull).toList()
-            : knowPostMapper.listFeedByIds(ids);
+        // 2. Build article list from ES results
+        List<Long> articleIds = esResults.stream()
+            .map(r -> Long.parseLong(r.id()))
+            .collect(Collectors.toList());
+        List<KnowPostFeedRow> rows = knowPostMapper.listFeedByIds(articleIds);
 
-        // Build article JSON with real counts
+        // Build article JSON
         StringBuilder articlesJson = new StringBuilder("[");
         for (int i = 0; i < rows.size(); i++) {
             KnowPostFeedRow r = rows.get(i);
@@ -103,23 +94,31 @@ public class AiSearchService {
         }
         articlesJson.append("]");
 
-        // 4. Build user prompt with top chunks
+        // 3. Build prompt context from article titles + descriptions (full coverage)
         StringBuilder context = new StringBuilder();
-        int chunkCount = 0;
-        for (String pid : postIds) {
-            List<Document> chunks = byPost.get(pid);
-            String title = "";
-            for (Document d : chunks) {
-                Object t = d.getMetadata().get("title");
-                if (t != null) { title = String.valueOf(t); break; }
-            }
+        int articleCount = 0;
+        for (KnowPostFeedRow r : rows) {
+            if (articleCount >= topK) break;
+            String title = r.getTitle() != null ? r.getTitle() : "无标题";
+            String desc = r.getDescription() != null ? r.getDescription() : "";
             context.append("### ").append(title).append("\n");
-            for (Document d : chunks) {
-                if (chunkCount >= MAX_CHUNKS) break;
-                context.append(d.getText()).append("\n\n");
-                chunkCount++;
+            if (!desc.isBlank()) context.append(desc).append("\n\n");
+            articleCount++;
+        }
+
+        // 4. Supplement with vector chunks if available (for deeper context)
+        if (vectorStore.isPresent()) {
+            List<Document> vectorDocs = searchVector(query, topK * 2);
+            Set<String> esIds = articleIds.stream().map(String::valueOf).collect(Collectors.toSet());
+            int extraChunks = 0;
+            for (Document d : vectorDocs) {
+                if (extraChunks >= 3) break;
+                Object pid = d.getMetadata().get("postId");
+                if (pid != null && esIds.contains(String.valueOf(pid))) {
+                    context.append(d.getText()).append("\n\n");
+                    extraChunks++;
+                }
             }
-            if (chunkCount >= MAX_CHUNKS) break;
         }
 
         String userPrompt = "用户问题：" + query + "\n\n相关文章内容：\n" + context.toString()
@@ -137,13 +136,11 @@ public class AiSearchService {
             .stream()
             .content();
 
-        // Accumulate raw text, then render to HTML as single event at end
         StringBuilder rawText = new StringBuilder();
         Flux<String> answerWithHtml = answerStream
             .doOnNext(rawText::append)
             .concatWith(Flux.defer(() -> {
                 String html = markdownRenderer.render(rawText.toString());
-                // Remove newlines so SSE doesn't split the HTML across multiple data: lines
                 return Flux.just("[HTML]" + html.replace("\n", ""));
             }));
 
