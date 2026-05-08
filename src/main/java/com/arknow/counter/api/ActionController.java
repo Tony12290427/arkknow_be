@@ -61,7 +61,10 @@ public class ActionController {
     public Map<String, Object> unlike(@RequestBody ActionRequest req, @AuthenticationPrincipal Jwt jwt) {
         long uid = Long.parseLong(jwt.getClaimAsString("uid"));
         boolean changed = counterService.unlike(req.entityType(), req.entityId(), uid);
-        if (changed) redis.opsForSet().remove(USER_LIKES_KEY + uid, req.entityId());
+        if (changed) {
+            redis.opsForSet().remove(USER_LIKES_KEY + uid, req.entityId());
+            decrementPostAuthorCounter(Long.parseLong(req.entityId()), "like");
+        }
         return Map.of("changed", changed, "liked", counterService.isLiked(req.entityType(), req.entityId(), uid));
     }
 
@@ -80,7 +83,10 @@ public class ActionController {
     public Map<String, Object> unfav(@RequestBody ActionRequest req, @AuthenticationPrincipal Jwt jwt) {
         long uid = Long.parseLong(jwt.getClaimAsString("uid"));
         boolean changed = counterService.unfav(req.entityType(), req.entityId(), uid);
-        if (changed) redis.opsForSet().remove(USER_FAVS_KEY + uid, req.entityId());
+        if (changed) {
+            redis.opsForSet().remove(USER_FAVS_KEY + uid, req.entityId());
+            decrementPostAuthorCounter(Long.parseLong(req.entityId()), "fav");
+        }
         return Map.of("changed", changed, "faved", counterService.isFaved(req.entityType(), req.entityId(), uid));
     }
 
@@ -89,7 +95,6 @@ public class ActionController {
             Optional<KnowPost> post = postMapper.findById(postId);
             if (post.isEmpty()) return;
             long authorId = post.get().getCreatorId();
-            // Increment user counter
             if ("like".equals(type)) {
                 userCounterService.incrementLikedPosts(authorId, 1);
             } else if ("fav".equals(type)) {
@@ -103,6 +108,19 @@ public class ActionController {
             n.setActorId(actorId);
             n.setPostId(postId);
             notifMapper.insert(n);
+        } catch (Exception ignored) {}
+    }
+
+    private void decrementPostAuthorCounter(long postId, String type) {
+        try {
+            Optional<KnowPost> post = postMapper.findById(postId);
+            if (post.isEmpty()) return;
+            long authorId = post.get().getCreatorId();
+            if ("like".equals(type)) {
+                userCounterService.incrementLikedPosts(authorId, -1);
+            } else if ("fav".equals(type)) {
+                userCounterService.incrementFavedPosts(authorId, -1);
+            }
         } catch (Exception ignored) {}
     }
 }
