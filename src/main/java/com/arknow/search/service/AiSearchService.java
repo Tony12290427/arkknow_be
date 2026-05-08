@@ -58,18 +58,49 @@ public class AiSearchService {
         this.searchService = searchService;
     }
 
-    public Flux<String> searchStream(String query, int topK) {
-        // 1. ES keyword search — full coverage of all published articles
-        List<SearchResponse> esResults = searchService.search(query, null, 1, Math.min(topK * 2, 20));
+    private static final int RRF_K = 60;
 
-        if (esResults.isEmpty()) {
+    public Flux<String> searchStream(String query, int topK) {
+        // 1. ES keyword search
+        List<SearchResponse> esResults = searchService.search(query, null, 1, Math.min(topK * 3, 30));
+
+        // 2. Vector semantic search
+        List<Document> vectorDocs = searchVector(query, topK * 3);
+
+        // 3. RRF fusion: merge keyword ranks + vector ranks
+        Map<String, Double> rrfScores = new LinkedHashMap<>();
+        Map<String, SearchResponse> esById = new LinkedHashMap<>();
+        Map<String, List<String>> vectorChunksByPostId = new LinkedHashMap<>();
+
+        // ES keyword scores via RRF
+        for (int i = 0; i < esResults.size(); i++) {
+            String id = esResults.get(i).id();
+            rrfScores.merge(id, 1.0 / (RRF_K + i + 1), Double::sum);
+            esById.put(id, esResults.get(i));
+        }
+
+        // Vector similarity scores via RRF
+        for (int i = 0; i < vectorDocs.size(); i++) {
+            Document d = vectorDocs.get(i);
+            Object pid = d.getMetadata().get("postId");
+            if (pid == null) continue;
+            String id = String.valueOf(pid);
+            rrfScores.merge(id, 1.0 / (RRF_K + i + 1), Double::sum);
+            vectorChunksByPostId.computeIfAbsent(id, k -> new ArrayList<>()).add(d.getText());
+        }
+
+        if (rrfScores.isEmpty()) {
             return Flux.just("未找到相关内容，请尝试其他关键词。", "[ARTICLES]{\"items\":[]}", "[DONE]");
         }
 
-        // 2. Build article list from ES results
-        List<Long> articleIds = esResults.stream()
-            .map(r -> Long.parseLong(r.id()))
+        // 4. Sort by RRF score, take topK
+        List<String> rankedIds = rrfScores.entrySet().stream()
+            .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+            .limit(topK * 2)
+            .map(Map.Entry::getKey)
             .collect(Collectors.toList());
+
+        List<Long> articleIds = rankedIds.stream().map(Long::parseLong).collect(Collectors.toList());
         List<KnowPostFeedRow> rows = knowPostMapper.listFeedByIds(articleIds);
 
         // Build article JSON
@@ -94,31 +125,30 @@ public class AiSearchService {
         }
         articlesJson.append("]");
 
-        // 3. Build prompt context from article titles + descriptions (full coverage)
+        // 5. Build prompt context: titles + descriptions + vector chunks for top articles
         StringBuilder context = new StringBuilder();
         int articleCount = 0;
+        int chunkCount = 0;
         for (KnowPostFeedRow r : rows) {
             if (articleCount >= topK) break;
+            String id = r.getId();
             String title = r.getTitle() != null ? r.getTitle() : "无标题";
             String desc = r.getDescription() != null ? r.getDescription() : "";
             context.append("### ").append(title).append("\n");
-            if (!desc.isBlank()) context.append(desc).append("\n\n");
-            articleCount++;
-        }
-
-        // 4. Supplement with vector chunks if available (for deeper context)
-        if (vectorStore.isPresent()) {
-            List<Document> vectorDocs = searchVector(query, topK * 2);
-            Set<String> esIds = articleIds.stream().map(String::valueOf).collect(Collectors.toSet());
-            int extraChunks = 0;
-            for (Document d : vectorDocs) {
-                if (extraChunks >= 3) break;
-                Object pid = d.getMetadata().get("postId");
-                if (pid != null && esIds.contains(String.valueOf(pid))) {
-                    context.append(d.getText()).append("\n\n");
-                    extraChunks++;
+            if (!desc.isBlank()) context.append(desc).append("\n");
+            // Add vector chunks for this article if available
+            List<String> chunks = vectorChunksByPostId.get(id);
+            if (chunks != null) {
+                for (String chunk : chunks) {
+                    if (chunkCount >= MAX_CHUNKS) break;
+                    if (chunk.length() > 50) { // skip tiny chunks
+                        context.append(chunk).append("\n\n");
+                        chunkCount++;
+                    }
                 }
             }
+            context.append("\n");
+            articleCount++;
         }
 
         String userPrompt = "用户问题：" + query + "\n\n相关文章内容：\n" + context.toString()
