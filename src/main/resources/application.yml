@@ -28,11 +28,11 @@ spring:
         initialize-schema: true
         index-name: arknow-rag-index
     openai:
-      api-key: REDACTED_OPENAI_KEY
+      api-key: ${OPENAI_API_KEY}
       embedding:
-        api-key: REDACTED_OPENAI_KEY
+        api-key: ${OPENAI_API_KEY}
     deepseek:
-      api-key: REDACTED_DEEPSEEK_KEY
+      api-key: ${DEEPSEEK_API_KEY}
       base-url: https://api.deepseek.com
 
 mybatis:
