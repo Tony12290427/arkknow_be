@@ -1,6 +1,7 @@
 package com.arknow.search.service;
 
 import com.arknow.counter.service.CounterService;
+import com.arknow.llm.MarkdownRenderer;
 import com.arknow.knowpost.mapper.KnowPostMapper;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import org.slf4j.Logger;
@@ -41,13 +42,16 @@ public class AiSearchService {
     private final ChatClient chatClient;
     private final KnowPostMapper knowPostMapper;
     private final CounterService counterService;
+    private final MarkdownRenderer markdownRenderer;
 
     public AiSearchService(Optional<VectorStore> vectorStore, ChatClient chatClient,
-                           KnowPostMapper knowPostMapper, CounterService counterService) {
+                           KnowPostMapper knowPostMapper, CounterService counterService,
+                           MarkdownRenderer markdownRenderer) {
         this.vectorStore = vectorStore;
         this.chatClient = chatClient;
         this.knowPostMapper = knowPostMapper;
         this.counterService = counterService;
+        this.markdownRenderer = markdownRenderer;
     }
 
     public Flux<String> searchStream(String query, int topK) {
@@ -121,8 +125,8 @@ public class AiSearchService {
         String userPrompt = "用户问题：" + query + "\n\n相关文章内容：\n" + context.toString()
             + "\n请基于以上文章内容回答用户问题。";
 
-        // 5. Stream LLM answer + article list at end
-        Flux<String> answer = chatClient.prompt()
+        // 5. Stream LLM answer + render HTML at end + article list
+        Flux<String> answerStream = chatClient.prompt()
             .system(SYSTEM_PROMPT)
             .user(userPrompt)
             .options(DeepSeekChatOptions.builder()
@@ -133,12 +137,21 @@ public class AiSearchService {
             .stream()
             .content();
 
+        // Accumulate raw text, then render to HTML as single event at end
+        StringBuilder rawText = new StringBuilder();
+        Flux<String> answerWithHtml = answerStream
+            .doOnNext(rawText::append)
+            .concatWith(Flux.defer(() -> {
+                String html = markdownRenderer.render(rawText.toString());
+                return Flux.just("[HTML]" + html);
+            }));
+
         Flux<String> articles = Flux.just(
             "[ARTICLES]" + articlesJson.toString(),
             "[DONE]"
         );
 
-        return Flux.concat(answer, articles);
+        return Flux.concat(answerWithHtml, articles);
     }
 
     private List<Document> searchVector(String query, int fetchK) {
