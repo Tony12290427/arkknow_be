@@ -38,7 +38,10 @@ public class OssStorageService {
      * @return presigned URL details including object key, put URL, headers, and expiry
      */
     public StoragePresignResponse generatePresignedUrl(StoragePresignRequest request) {
-        String objectKey = request.scene() + "/" + request.postId() + "/" + UUID.randomUUID() + request.ext();
+        String scene = request.scene() != null ? request.scene() : "posts";
+        String pid = request.postId() != null ? request.postId() : "draft";
+        String ext = request.ext() != null ? request.ext() : ".png";
+        String objectKey = scene + "/" + pid + "/" + UUID.randomUUID() + ext;
         String putUrl = "http://localhost:8080/uploads/" + objectKey;
         return new StoragePresignResponse(objectKey, putUrl, Map.of("Content-Type", request.contentType()), 600);
     }
