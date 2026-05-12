@@ -45,8 +45,13 @@ public class CommentController {
     }
 
     @GetMapping("/{id}/replies")
-    public List<Comment> replies(@PathVariable long id) {
-        return mapper.listReplies(id);
+    public Map<String, Object> replies(@PathVariable long id,
+                                       @RequestParam(defaultValue = "0") int offset,
+                                       @RequestParam(defaultValue = "3") int limit) {
+        List<Comment> items = mapper.listReplies(id, offset, limit);
+        int total = mapper.countReplies(id);
+        boolean hasMore = offset + limit < total;
+        return Map.of("items", items, "total", total, "hasMore", hasMore);
     }
 
     @PostMapping
@@ -76,5 +81,17 @@ public class CommentController {
         }
 
         return c;
+    }
+
+    @DeleteMapping("/{id}")
+    public Map<String, Boolean> delete(@PathVariable long id,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        long uid = Long.parseLong(jwt.getClaimAsString("uid"));
+        int rows = mapper.softDeleteById(id, uid);
+        if (rows == 0) {
+            throw new com.arknow.common.exception.BusinessException(
+                com.arknow.common.exception.ErrorCode.BAD_REQUEST, "评论不存在或无权删除");
+        }
+        return Map.of("success", true);
     }
 }

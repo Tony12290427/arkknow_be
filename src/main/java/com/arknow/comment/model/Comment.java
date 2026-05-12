@@ -1,15 +1,23 @@
 package com.arknow.comment.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.Instant;
 
 public class Comment {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long postId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long parentId;
     private String content;
     private Instant createdAt;
     private Instant updatedAt;
+    private Instant deletedAt;
     // joined fields
     private String userNickname;
     private String userAvatar;
@@ -29,6 +37,8 @@ public class Comment {
     public void setCreatedAt(Instant v) { this.createdAt = v; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant v) { this.updatedAt = v; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(Instant v) { this.deletedAt = v; }
     public String getUserNickname() { return userNickname; }
     public void setUserNickname(String v) { this.userNickname = v; }
     public String getUserAvatar() { return userAvatar; }

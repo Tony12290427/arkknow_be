@@ -1,5 +1,6 @@
 package com.arknow.knowpost.service.impl;
 
+import com.arknow.comment.mapper.CommentMapper;
 import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
 import com.arknow.counter.service.CounterService;
@@ -47,18 +48,21 @@ public class KnowPostServiceImpl implements KnowPostService {
     private final SearchIndexService searchIndexService;
     private final StringRedisTemplate redis;
     private final UserCounterService userCounterService;
+    private final CommentMapper commentMapper;
 
     public KnowPostServiceImpl(KnowPostMapper mapper, SnowflakeIdGenerator idGen,
                                 CounterService counterService,
                                 @Autowired(required = false) SearchIndexService searchIndexService,
                                 StringRedisTemplate redis,
-                                UserCounterService userCounterService) {
+                                UserCounterService userCounterService,
+                                CommentMapper commentMapper) {
         this.mapper = mapper;
         this.idGen = idGen;
         this.counterService = counterService;
         this.searchIndexService = searchIndexService;
         this.redis = redis;
         this.userCounterService = userCounterService;
+        this.commentMapper = commentMapper;
     }
 
     @Override
@@ -132,11 +136,12 @@ public class KnowPostServiceImpl implements KnowPostService {
         mapper.updateVisibility(postId, visible);
     }
 
-    /** Soft-deletes a post by setting status to 'deleted'. The creator must be the owner. */
+    /** Soft-deletes a post and cascades soft-delete to all its comments. */
     @Override
     public void softDelete(long postId, long creatorId) {
         int rows = mapper.softDelete(postId, creatorId);
         if (rows == 0) throw new BusinessException(ErrorCode.BAD_REQUEST, "删除失败");
+        commentMapper.softDeleteByPostId(postId);
     }
 
     /**

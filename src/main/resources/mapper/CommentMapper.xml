@@ -8,7 +8,7 @@
     </insert>
 
     <select id="listByPost" resultType="com.arknow.comment.model.Comment">
-        SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.updated_at,
+        SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.updated_at, c.deleted_at,
                u.nickname AS user_nickname, u.avatar AS user_avatar,
                (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) AS reply_count
         FROM comments c
@@ -23,15 +23,49 @@
     </select>
 
     <select id="listReplies" resultType="com.arknow.comment.model.Comment">
-        SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at,
+        SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.deleted_at,
                u.nickname AS user_nickname, u.avatar AS user_avatar
         FROM comments c
         JOIN users u ON c.user_id = u.id
         WHERE c.parent_id = #{parentId}
         ORDER BY c.created_at ASC
+        LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countReplies" resultType="int">
         SELECT COUNT(*) FROM comments WHERE parent_id = #{parentId}
     </select>
+
+    <delete id="deleteById">
+        DELETE FROM comments WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+
+    <update id="softDeleteById">
+        UPDATE comments SET deleted_at = NOW()
+        WHERE id = #{id} AND user_id = #{userId} AND deleted_at IS NULL
+    </update>
+
+    <update id="softDeleteByPostId">
+        UPDATE comments SET deleted_at = NOW()
+        WHERE post_id = #{postId} AND deleted_at IS NULL
+    </update>
+
+    <!-- Admin methods -->
+    <select id="listAll" resultType="com.arknow.comment.model.Comment">
+        SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.updated_at,
+               u.nickname AS user_nickname, u.avatar AS user_avatar,
+               (SELECT COUNT(*) FROM comments r WHERE r.parent_id = c.id) AS reply_count
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        ORDER BY c.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM comments
+    </select>
+
+    <delete id="deleteByIdAdmin">
+        DELETE FROM comments WHERE id = #{id}
+    </delete>
 </mapper>
