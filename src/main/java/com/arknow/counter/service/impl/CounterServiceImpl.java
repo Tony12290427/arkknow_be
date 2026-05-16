@@ -51,6 +51,7 @@ public class CounterServiceImpl implements CounterService {
     private final CounterAggregationConsumer aggregationConsumer;
     private final Cache<String, FeedPageResponse> feedPublicCache;
     private final ShardedCounterImpl shardedCounter;
+    private final CounterFlushConsumer flushConsumer;
 
     /** Lua script: atomically toggles a bit and returns 1 if changed, 0 if unchanged. */
     private static final String TOGGLE_LUA = """
@@ -72,11 +73,13 @@ public class CounterServiceImpl implements CounterService {
     public CounterServiceImpl(StringRedisTemplate redis, CounterEventProducer eventProducer,
                                CounterAggregationConsumer aggregationConsumer,
                                ShardedCounterImpl shardedCounter,
+                               CounterFlushConsumer flushConsumer,
                                @Qualifier("feedPublicCache") Cache<String, FeedPageResponse> feedPublicCache) {
         this.redis = redis;
         this.eventProducer = eventProducer;
         this.aggregationConsumer = aggregationConsumer;
         this.shardedCounter = shardedCounter;
+        this.flushConsumer = flushConsumer;
         this.feedPublicCache = feedPublicCache;
     }
 
@@ -216,6 +219,8 @@ public class CounterServiceImpl implements CounterService {
             int delta = add ? 1 : -1;
             // Sharded counter: distribute write across N buckets (hot-key safe)
             shardedCounter.increment(etype, eid, metric, uid, delta);
+            // Mark entity dirty for async DB flush
+            flushConsumer.markDirty(etype, eid);
             CounterEvent event = CounterEvent.of(etype, eid, metric, idx, uid, delta);
             eventProducer.publish(event);
             // Synchronous aggregation in MVP mode
