@@ -20,6 +20,7 @@ import java.util.Map;
 @Service
 public class UserCounterServiceImpl implements UserCounterService {
     private final StringRedisTemplate redis;
+    private final ShardedCounterImpl shardedCounter;
 
     /** Same Lua incr script as entity-level counters, reused for user counters. */
     private static final String SDS_INCR_LUA = """
@@ -49,8 +50,9 @@ public class UserCounterServiceImpl implements UserCounterService {
             return val
             """;
 
-    public UserCounterServiceImpl(StringRedisTemplate redis) {
+    public UserCounterServiceImpl(StringRedisTemplate redis, ShardedCounterImpl shardedCounter) {
         this.redis = redis;
+        this.shardedCounter = shardedCounter;
     }
 
     @Override
@@ -96,7 +98,13 @@ public class UserCounterServiceImpl implements UserCounterService {
         incrementField(userId, 4, delta);
     }
 
+    private static final String[] USER_METRICS = {"followings", "followers", "posts", "likedPosts", "favedPosts"};
+
     private void incrementField(long userId, int idx, int delta) {
+        // Sharded counter: distribute across N buckets (hot-key safe)
+        String metric = idx >= 0 && idx < USER_METRICS.length ? USER_METRICS[idx] : "unknown";
+        shardedCounter.increment("user", String.valueOf(userId), metric, userId, delta);
+        // Keep legacy SDS path for backward compatibility
         DefaultRedisScript<Long> incrScript = new DefaultRedisScript<>(SDS_INCR_LUA, Long.class);
         redis.execute(incrScript, List.of(UserCounterKeys.sdsKey(userId)),
                 String.valueOf(CounterSchema.SCHEMA_LEN),
