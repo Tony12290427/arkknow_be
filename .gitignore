@@ -12,8 +12,11 @@ target/
 *.swo
 uploads/
 .env
+.env.production
+!.env.production.example
 *.pem
 !*.public.pem
 !public.pem
 keys/private.pem
 src/main/resources/keys/private.pem
+.gstack/
