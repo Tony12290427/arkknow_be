@@ -59,6 +59,11 @@ auth:
     bcrypt-strength: 12
     min-length: 8
 
+counter:
+  bucket:
+    entity-buckets: 100
+    user-buckets: 50
+
 cache:
   page-ttl: 60
   fragment-ttl: 120

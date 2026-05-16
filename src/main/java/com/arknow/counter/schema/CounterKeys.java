@@ -8,9 +8,15 @@ package com.arknow.counter.schema;
  *   <li>{@code bm:<metric>:<etype>:<eid>:<chunk>} — bitmap shard for user state</li>
  *   <li>{@code agg:<schema>:<etype>:<eid>} — Kafka aggregation bucket (Redis Hash)</li>
  *   <li>{@code sds:<etype>:<eid>} — final committed counter (SDS binary blob)</li>
+ *   <li>{@code cnt:<etype>:<eid>:bucket:<0..N-1>} — sharded bucket hash (hot-key safe)</li>
  * </ul>
  */
 public final class CounterKeys {
+
+    /** Sharded bucket key. Distributes writes across N buckets per entity. */
+    public static String bucketKey(String etype, String eid, int bucketId) {
+        return String.format("cnt:%s:%s:bucket:%d", etype, eid, bucketId);
+    }
 
     /** Bitmap key for user-state tracking. */
     public static String bitmapKey(String metric, String etype, String eid, long chunk) {
