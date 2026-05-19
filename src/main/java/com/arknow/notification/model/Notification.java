@@ -1,13 +1,21 @@
 package com.arknow.notification.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.Instant;
 
 public class Notification {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
     private String type; // like, fav, follow, comment
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long actorId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long postId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long commentId;
     private Boolean isRead;
     private Instant createdAt;

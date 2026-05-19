@@ -7,8 +7,13 @@ import com.arknow.profile.api.dto.ProfileResponse;
 import com.arknow.profile.service.ProfileService;
 import com.arknow.user.domain.User;
 import com.arknow.user.mapper.UserMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Profile management service.
@@ -62,6 +67,32 @@ public class ProfileServiceImpl implements ProfileService {
         user.setAvatar(avatarUrl);
         userMapper.updateAvatar(user.getId(), avatarUrl);
         return toResponse(user);
+    }
+
+    @Override
+    public List<String> getTags(long userId) {
+        User user = userMapper.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        if (user.getTagsJson() == null || user.getTagsJson().isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return new ObjectMapper().readValue(user.getTagsJson(), new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public void updateTags(long userId, List<String> tags) {
+        User user = userMapper.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        try {
+            String tagsJson = new ObjectMapper().writeValueAsString(tags);
+            userMapper.updateTags(userId, tagsJson);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+        }
     }
 
     private ProfileResponse toResponse(User user) {

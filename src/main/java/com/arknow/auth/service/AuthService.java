@@ -120,6 +120,7 @@ public class AuthService {
                 .avatar(null)
                 .bio(null)
                 .tagsJson("[]")
+                .role("USER")
                 .build();
 
         if (StringUtils.hasText(request.password())) {
@@ -248,6 +249,31 @@ public class AuthService {
         refreshTokenStore.revokeAll(user.getId());
     }
 
+    // ==================== change password ====================
+
+    /**
+     * Changes the authenticated user's password after verifying the old password.
+     * <p>
+     * Users registered via verification code without a password cannot use this endpoint —
+     * they must first set a password via the reset-password flow.
+     * After a successful change, all existing refresh tokens are revoked, forcing re-login
+     * on all devices.
+     */
+    public void changePassword(long userId, String oldPassword, String newPassword) {
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        if (!StringUtils.hasText(user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "当前账号未设置密码，请先通过验证码设置密码");
+        }
+        if (!passwordEncoder.matches(oldPassword.trim(), user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "原密码错误");
+        }
+        validatePassword(newPassword);
+        user.setPasswordHash(passwordEncoder.encode(newPassword.trim()));
+        userService.updatePassword(user);
+        refreshTokenStore.revokeAll(user.getId());
+    }
+
     // ==================== me ====================
 
     /** Returns the current user's profile based on the authenticated JWT. */
@@ -255,6 +281,53 @@ public class AuthService {
         User user = findUserById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
         return mapUser(user);
+    }
+
+    // ==================== email bind/unbind ====================
+
+    /**
+     * Binds an email to the authenticated user's account.
+     * Requires a verification code sent to the target email.
+     */
+    public void bindEmail(long userId, String email, String code) {
+        validateIdentifier(IdentifierType.EMAIL, email);
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+
+        if (userService.existsByEmail(normalized)) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_EXISTS, "该邮箱已被绑定");
+        }
+
+        ensureVerificationSuccess(verificationService.verify(VerificationScene.REGISTER, normalized, code));
+
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        user.setEmail(normalized);
+        userService.updateEmail(user.getId(), normalized);
+    }
+
+    /**
+     * Unbinds the email from the authenticated user's account.
+     */
+    public void unbindEmail(long userId) {
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        if (!StringUtils.hasText(user.getEmail())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "当前账号未绑定邮箱");
+        }
+        userService.updateEmail(user.getId(), null);
+    }
+
+    // ==================== delete account ====================
+
+    /**
+     * Soft-deletes the authenticated user's account.
+     * Revokes all refresh tokens, forcing logout on all devices.
+     */
+    public void deleteAccount(long userId) {
+        User user = findUserById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND));
+        userService.softDelete(user.getId());
+        refreshTokenStore.revokeAll(user.getId());
     }
 
     // ==================== helpers ====================
@@ -347,8 +420,8 @@ public class AuthService {
     private AuthUserResponse mapUser(User user) {
         return new AuthUserResponse(
                 user.getId(), user.getNickname(), user.getAvatar(), user.getPhone(),
-                user.getZgId(), user.getBirthday(), user.getSchool(), user.getBio(),
-                user.getGender(), user.getTagsJson());
+                user.getEmail(), user.getZgId(), user.getBirthday(), user.getSchool(),
+                user.getBio(), user.getGender(), user.getTagsJson());
     }
 
     private TokenResponse mapToken(TokenPair tokenPair) {

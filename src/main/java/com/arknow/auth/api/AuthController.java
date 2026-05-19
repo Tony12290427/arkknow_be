@@ -5,6 +5,7 @@ import com.arknow.auth.model.ClientInfo;
 import com.arknow.auth.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -81,11 +82,51 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Changes the authenticated user's password. Requires old password. Revokes all existing refresh tokens. */
+    @PostMapping("/password/change")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request,
+                                               @AuthenticationPrincipal Jwt jwt) {
+        long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        authService.changePassword(userId, request.oldPassword(), request.newPassword());
+        return ResponseEntity.noContent().build();
+    }
+
     /** Returns the current authenticated user's profile information. */
     @GetMapping("/me")
     public AuthUserResponse me(@AuthenticationPrincipal Jwt jwt) {
         long userId = Long.parseLong(jwt.getClaimAsString("uid"));
         return authService.me(userId);
+    }
+
+    /** Binds an email to the authenticated user's account. Requires a verification code sent to the target email. */
+    @PostMapping("/email/bind")
+    public ResponseEntity<Void> bindEmail(@AuthenticationPrincipal Jwt jwt,
+                                          @RequestBody Map<String, String> body) {
+        long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        String email = body.get("email");
+        String code = body.get("code");
+        if (email == null || code == null) {
+            throw new com.arknow.common.exception.BusinessException(
+                com.arknow.common.exception.ErrorCode.BAD_REQUEST, "email和code不能为空");
+        }
+        authService.bindEmail(userId, email, code);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Unbinds the email from the authenticated user's account. */
+    @PostMapping("/email/unbind")
+    public ResponseEntity<Void> unbindEmail(@AuthenticationPrincipal Jwt jwt) {
+        long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        authService.unbindEmail(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Soft-deletes the authenticated user's account. Revokes all refresh tokens, forcing logout on all devices. */
+    @DeleteMapping("/account")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal Jwt jwt) {
+        long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        authService.deleteAccount(userId);
+        return ResponseEntity.noContent().build();
     }
 
     private ClientInfo resolveClient(HttpServletRequest request) {

@@ -1,8 +1,12 @@
 package com.arknow.knowpost.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.Instant;
 
 public class KnowPost {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private Long tagId;
     private String tags;
@@ -13,6 +17,7 @@ public class KnowPost {
     private String contentEtag;
     private Long contentSize;
     private String contentSha256;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long creatorId;
     private Boolean isTop;
     private String type;

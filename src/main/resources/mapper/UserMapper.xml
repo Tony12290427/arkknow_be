@@ -3,28 +3,28 @@
 <mapper namespace="com.arknow.user.mapper.UserMapper">
 
     <select id="existsByPhone" resultType="boolean">
-        SELECT COUNT(1) > 0 FROM users WHERE phone = #{phone}
+        SELECT COUNT(1) > 0 FROM users WHERE phone = #{phone} AND deleted_at IS NULL
     </select>
 
     <select id="existsByEmail" resultType="boolean">
-        SELECT COUNT(1) > 0 FROM users WHERE email = #{email}
+        SELECT COUNT(1) > 0 FROM users WHERE email = #{email} AND deleted_at IS NULL
     </select>
 
     <select id="findByPhone" resultType="com.arknow.user.domain.User">
-        SELECT * FROM users WHERE phone = #{phone}
+        SELECT * FROM users WHERE phone = #{phone} AND deleted_at IS NULL
     </select>
 
     <select id="findByEmail" resultType="com.arknow.user.domain.User">
-        SELECT * FROM users WHERE email = #{email}
+        SELECT * FROM users WHERE email = #{email} AND deleted_at IS NULL
     </select>
 
     <select id="findById" resultType="com.arknow.user.domain.User">
-        SELECT * FROM users WHERE id = #{id}
+        SELECT * FROM users WHERE id = #{id} AND deleted_at IS NULL
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (phone, email, password_hash, nickname, avatar, bio, tags_json)
-        VALUES (#{phone}, #{email}, #{passwordHash}, #{nickname}, #{avatar}, #{bio}, #{tagsJson})
+        INSERT INTO users (phone, email, password_hash, nickname, avatar, bio, tags_json, role)
+        VALUES (#{phone}, #{email}, #{passwordHash}, #{nickname}, #{avatar}, #{bio}, #{tagsJson}, #{role})
     </insert>
 
     <update id="updatePassword">
@@ -46,6 +46,18 @@
 
     <update id="updateAvatar">
         UPDATE users SET avatar = #{avatar}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateTags">
+        UPDATE users SET tags_json = #{tagsJson}, updated_at = NOW() WHERE id = #{userId}
+    </update>
+
+    <update id="updateEmail">
+        UPDATE users SET email = #{email}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="softDelete">
+        UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = #{id} AND deleted_at IS NULL
     </update>
 
 </mapper>

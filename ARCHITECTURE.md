@@ -171,6 +171,35 @@ After LLM completes: store full response (HTML + articles JSON) in Caffeine (L1)
 - Private key (`private.pem`) gitignored
 - Rate limiting per IP
 
+## Admin Module (Phase 3)
+
+The admin backend provides a full management dashboard with 17 controllers:
+
+| Controller | Path | Description |
+|-----------|------|-------------|
+| AdminAuthController | `/api/v1/admin/auth/*` | Admin authentication (login, refresh, logout, me) |
+| AdminUserController | `/api/v1/admin/users` | User management (list, detail, delete, batch-delete) |
+| AdminPostController | `/api/v1/admin/posts` | Post management + audit (approve/reject) |
+| AdminCommentController | `/api/v1/admin/comments` | Comment management |
+| AdminTagController | `/api/v1/admin/tags` | Tag extraction from posts |
+| AdminCategoryController | `/api/v1/admin/categories` | Category management |
+| AdminAuditController | `/api/v1/admin/audit-logs` | Login audit log viewer |
+| AdminCollectionController | `/api/v1/admin/collections` | Collection management |
+| AdminFollowController | `/api/v1/admin/follows` | Follow relationship management |
+| AdminNotificationController | `/api/v1/admin/notifications` | System notification management |
+| AdminSessionController | `/api/v1/admin/sessions` | Redis session viewer |
+| AdminAdminController | `/api/v1/admin/admins` | Admin role management (promote/demote) |
+| AdminMonitorController | `/api/v1/admin/monitor` | System statistics |
+| AdminLikeController | `/api/v1/admin/likes` | Like data (Redis) |
+| AdminApiDocsController | `/api/v1/admin/api-docs` | API documentation |
+
+Admin auth reuses the same JWT system with a `role` column on the `users` table.
+The `AdminAuthController` validates `role=ADMIN` before issuing tokens.
+
+### API Documentation
+
+Full API docs available at `GET /api/v1/admin/api-docs` (26 modules, ~90 endpoints with request/response examples).
+
 ## Deployment
 - Frontend: Vite build → static files + Express SSR server
 - Backend: Spring Boot fat JAR, embedded Tomcat

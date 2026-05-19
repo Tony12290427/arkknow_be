@@ -5,7 +5,6 @@ import com.arknow.knowpost.model.KnowPostDetailRow;
 import com.arknow.knowpost.model.KnowPostFeedRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +27,12 @@ public interface KnowPostMapper {
     List<KnowPostFeedRow> listFeedByFollowing(@Param("userId") long userId, @Param("limit") int limit, @Param("offset") int offset);
     KnowPostFeedRow getFeedRowById(@Param("id") long id);
     List<KnowPostFeedRow> listFeedByIds(@Param("ids") List<Long> ids);
+
+    // Admin methods — SQL in KnowPostMapper.xml
+    List<KnowPost> listAll(@Param("offset") int offset, @Param("limit") int limit);
+    int countAll();
+    List<KnowPost> listByStatus(@Param("status") String status, @Param("offset") int offset, @Param("limit") int limit);
+    int countByStatus(@Param("status") String status);
+    int updateStatus(@Param("id") long id, @Param("status") String status);
+    int softDeleteAdmin(@Param("id") long id);
 }

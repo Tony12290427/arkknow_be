@@ -7,6 +7,7 @@ public record AuthUserResponse(
         String nickname,
         String avatar,
         String phone,
+        String email,
         String zgId,
         LocalDate birthday,
         String school,

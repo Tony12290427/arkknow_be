@@ -1,15 +1,19 @@
 package com.arknow.profile.api;
 
+import com.arknow.common.exception.BusinessException;
+import com.arknow.common.exception.ErrorCode;
 import com.arknow.profile.api.dto.ProfilePatchRequest;
 import com.arknow.profile.api.dto.ProfileResponse;
 import com.arknow.profile.service.ProfileService;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,8 +24,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -69,6 +73,25 @@ public class ProfileController {
         } catch (IOException e) {
             throw new RuntimeException("Failed to upload avatar", e);
         }
+    }
+
+    @GetMapping("/{userId}/tags")
+    public List<String> getTags(@PathVariable long userId) {
+        return profileService.getTags(userId);
+    }
+
+    @PutMapping("/{userId}/tags")
+    public ResponseEntity<Void> updateTags(@PathVariable long userId,
+                                           @AuthenticationPrincipal Jwt jwt,
+                                           @RequestBody Map<String, Object> body) {
+        long currentUserId = Long.parseLong(jwt.getClaimAsString("uid"));
+        if (currentUserId != userId) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无权修改他人标签");
+        }
+        @SuppressWarnings("unchecked")
+        List<String> tags = (List<String>) body.get("tags");
+        profileService.updateTags(userId, tags);
+        return ResponseEntity.noContent().build();
     }
 
     private static String getExtension(String filename) {

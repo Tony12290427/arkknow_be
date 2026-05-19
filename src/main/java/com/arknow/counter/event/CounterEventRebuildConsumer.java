@@ -27,8 +27,8 @@ import java.util.List;
  */
 @Service
 @ConditionalOnProperty(name = "counter.rebuild.enabled", havingValue = "true")
-public class CounterRebuildConsumer {
-    private static final Logger log = LoggerFactory.getLogger(CounterRebuildConsumer.class);
+public class CounterEventRebuildConsumer {
+    private static final Logger log = LoggerFactory.getLogger(CounterEventRebuildConsumer.class);
 
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redis;
@@ -66,7 +66,7 @@ public class CounterRebuildConsumer {
             return 1
             """;
 
-    public CounterRebuildConsumer(ObjectMapper objectMapper, StringRedisTemplate redis) {
+    public CounterEventRebuildConsumer(ObjectMapper objectMapper, StringRedisTemplate redis) {
         this.objectMapper = objectMapper;
         this.redis = redis;
         this.incrScript = new DefaultRedisScript<>(INCR_FIELD_LUA, Long.class);

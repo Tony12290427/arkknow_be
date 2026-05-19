@@ -54,4 +54,20 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND);
         }
     }
+
+    @Override
+    public void updateEmail(long userId, String email) {
+        int rows = userMapper.updateEmail(userId, email);
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND);
+        }
+    }
+
+    @Override
+    public void softDelete(long userId) {
+        int rows = userMapper.softDelete(userId);
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND);
+        }
+    }
 }

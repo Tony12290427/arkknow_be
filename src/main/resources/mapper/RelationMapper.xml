@@ -60,4 +60,26 @@
         WHERE to_user_id = #{userId} AND rel_status = 1
     </select>
 
+    <!-- ==================== Admin ==================== -->
+
+    <select id="listAllFollowing" resultType="java.util.HashMap">
+        SELECT f.id, f.from_user_id, f.to_user_id, f.rel_status, f.created_at, f.updated_at,
+               u1.nickname AS from_nickname, u1.avatar AS from_avatar,
+               u2.nickname AS to_nickname, u2.avatar AS to_avatar
+        FROM following f
+        JOIN users u1 ON f.from_user_id = u1.id
+        JOIN users u2 ON f.to_user_id = u2.id
+        WHERE f.rel_status = 1
+        ORDER BY f.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAllFollowing" resultType="long">
+        SELECT COUNT(1) FROM following WHERE rel_status = 1
+    </select>
+
+    <delete id="deleteFollowingById">
+        DELETE FROM following WHERE id = #{id}
+    </delete>
+
 </mapper>

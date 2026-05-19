@@ -6,6 +6,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import com.arknow.common.exception.BusinessException;
+import com.arknow.common.exception.ErrorCode;
+
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +42,18 @@ public class NotificationController {
     public Map<String, Boolean> markAllRead(@AuthenticationPrincipal Jwt jwt) {
         long uid = Long.parseLong(jwt.getClaimAsString("uid"));
         mapper.markRead(uid);
+        return Map.of("success", true);
+    }
+
+    @DeleteMapping("/{id}")
+    public Map<String, Boolean> delete(@PathVariable long id,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        long uid = Long.parseLong(jwt.getClaimAsString("uid"));
+        int rows = mapper.deleteById(id, uid);
+        if (rows == 0) {
+            throw new BusinessException(
+                ErrorCode.BAD_REQUEST, "通知不存在或无权删除");
+        }
         return Map.of("success", true);
     }
 }

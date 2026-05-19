@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * MyBatis mapper for following and follower tables.
@@ -51,4 +52,15 @@ public interface RelationMapper {
 
     /** Count of active follower relationships. */
     long countFollowerActive(@Param("userId") long userId);
+
+    // ==================== Admin ====================
+
+    /** List all follow relationships (admin). */
+    List<Map<String, Object>> listAllFollowing(@Param("offset") int offset, @Param("limit") int limit);
+
+    /** Count all active follow relationships. */
+    long countAllFollowing();
+
+    /** Delete a follow relationship by id. */
+    int deleteFollowingById(@Param("id") long id);
 }

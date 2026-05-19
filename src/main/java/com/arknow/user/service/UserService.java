@@ -12,4 +12,6 @@ public interface UserService {
     Optional<User> findById(long id);
     void createUser(User user);
     void updatePassword(User user);
+    void updateEmail(long userId, String email);
+    void softDelete(long userId);
 }

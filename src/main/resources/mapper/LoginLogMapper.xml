@@ -7,4 +7,21 @@
         VALUES (#{userId}, #{identifier}, #{channel}, #{ip}, #{userAgent}, #{status})
     </insert>
 
+    <!-- Admin methods -->
+    <select id="listAll" resultType="com.arknow.auth.audit.LoginLog">
+        SELECT id, user_id, identifier, channel, ip, user_agent, status, created_at
+        FROM login_logs
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM login_logs
+    </select>
+
+    <select id="findById" resultType="com.arknow.auth.audit.LoginLog">
+        SELECT id, user_id, identifier, channel, ip, user_agent, status, created_at
+        FROM login_logs
+        WHERE id = #{id}
+    </select>
 </mapper>

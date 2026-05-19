@@ -7,6 +7,6 @@ RUN mvn package -DskipTests -q
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/arknow-1.0-SNAPSHOT.jar app.jar
+COPY --from=build /app/target/arkknow-1.0-SNAPSHOT.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-XX:+ExitOnOutOfMemoryError", "-jar", "app.jar"]
