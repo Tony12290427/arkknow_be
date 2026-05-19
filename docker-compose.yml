@@ -105,6 +105,29 @@ services:
     networks:
       - arknow-net
 
+  canal:
+    image: canal/canal-server:v1.1.8
+    container_name: arknow-canal
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./canal/instance.properties.template:/home/admin/canal-server/conf/example/instance.properties.template
+      - canal_logs:/home/admin/canal-server/logs
+    entrypoint: ["/bin/sh", "-c", "envsubst < /home/admin/canal-server/conf/example/instance.properties.template > /home/admin/canal-server/conf/example/instance.properties && exec /home/admin/canal-server/bin/startup.sh"]
+    mem_limit: 512m
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - arknow-net
+
   backend:
     build:
       context: .
@@ -170,6 +193,7 @@ volumes:
   redis_data:
   es_data:
   kafka_data:
+  canal_logs:
   certbot_www:
   certbot_conf:
 
