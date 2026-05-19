@@ -20,3 +20,4 @@ uploads/
 keys/private.pem
 src/main/resources/keys/private.pem
 .gstack/
+CLAUDE.md
