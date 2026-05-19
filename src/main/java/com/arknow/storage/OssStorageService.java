@@ -1,48 +1,50 @@
 package com.arknow.storage;
 
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.HttpMethod;
+import com.aliyun.oss.model.GeneratePresignedUrlRequest;
+import com.arknow.common.exception.BusinessException;
+import com.arknow.common.exception.ErrorCode;
 import com.arknow.storage.api.dto.StoragePresignRequest;
 import com.arknow.storage.api.dto.StoragePresignResponse;
 import com.arknow.storage.config.OssProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 
+import java.net.URL;
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Object storage service for presigned URL generation.
- * <p>
- * In production this would generate a time-limited presigned PUT URL from Alibaba Cloud OSS
- * so that clients can upload large files directly to object storage without routing bytes
- * through the application server. This avoids server bandwidth costs and bottlenecks.
- * <p>
- * The current dev implementation returns a placeholder URL. Replace with real OSS SDK calls
- * when deploying to production.
- */
 @Service
 @EnableConfigurationProperties(OssProperties.class)
 public class OssStorageService {
+    private final OSS ossClient;
     private final OssProperties ossProperties;
 
-    public OssStorageService(OssProperties ossProperties) {
+    public OssStorageService(OSS ossClient, OssProperties ossProperties) {
+        this.ossClient = ossClient;
         this.ossProperties = ossProperties;
     }
 
-    /**
-     * Generates a presigned upload URL.
-     * <p>
-     * The object key follows the pattern {@code <scene>/<postId>/<uuid><ext>} for
-     * tenant isolation and collision avoidance.
-     *
-     * @param request scene, post ID, content type, and file extension
-     * @return presigned URL details including object key, put URL, headers, and expiry
-     */
     public StoragePresignResponse generatePresignedUrl(StoragePresignRequest request) {
         String scene = request.scene() != null ? request.scene() : "posts";
         String pid = request.postId() != null ? request.postId() : "draft";
         String ext = request.ext() != null ? request.ext() : ".png";
         String objectKey = scene + "/" + pid + "/" + UUID.randomUUID() + ext;
-        String putUrl = "http://localhost:8080/uploads/" + objectKey;
-        return new StoragePresignResponse(objectKey, putUrl, Map.of("Content-Type", request.contentType()), 600);
+
+        try {
+            Date expiration = new Date(System.currentTimeMillis() + 600 * 1000);
+            GeneratePresignedUrlRequest presignReq = new GeneratePresignedUrlRequest(
+                    ossProperties.getBucketName(), objectKey, HttpMethod.PUT);
+            presignReq.setExpiration(expiration);
+            presignReq.setContentType(request.contentType());
+
+            URL url = ossClient.generatePresignedUrl(presignReq);
+            String publicUrl = "https://" + ossProperties.getBucketName() + "." + ossProperties.getEndpoint() + "/" + objectKey;
+            return new StoragePresignResponse(objectKey, url.toString(), Map.of("Content-Type", request.contentType()), 600);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "Failed to generate upload URL: " + e.getMessage());
+        }
     }
 }
