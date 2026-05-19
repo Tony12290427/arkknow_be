@@ -41,8 +41,8 @@ public class OssStorageService {
             presignReq.setContentType(request.contentType());
 
             URL url = ossClient.generatePresignedUrl(presignReq);
-            String publicUrl = "https://" + ossProperties.getBucketName() + "." + ossProperties.getEndpoint() + "/" + objectKey;
-            return new StoragePresignResponse(objectKey, url.toString(), Map.of("Content-Type", request.contentType()), 600);
+            String publicUrl = ossProperties.getCdnDomain() + "/" + objectKey;
+            return new StoragePresignResponse(objectKey, url.toString(), publicUrl, Map.of("Content-Type", request.contentType()), 600);
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "Failed to generate upload URL: " + e.getMessage());
         }
