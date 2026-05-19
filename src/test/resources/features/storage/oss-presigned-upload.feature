@@ -5,7 +5,7 @@ Feature: OSS 预签名 URL 直传
   核心目标：减少应用服务器带宽、支持大文件上传、类型和大小校验。
 
   Background:
-    Given 后端服务在 http://8.218.64.22 运行正常
+    Given 后端服务运行正常
 
   @smoke @happy-path
   Scenario: 请求图片上传的预签名 URL

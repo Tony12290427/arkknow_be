@@ -211,10 +211,10 @@ tar czf /tmp/oss_security.tar.gz \
   src/main/resources/application-prod.yml
 
 # 上传到服务器
-scp -i ~/Downloads/arknow-2.pem /tmp/oss_security.tar.gz root@8.218.64.22:/tmp/
+scp -i ~/Downloads/<your-key>.pem /tmp/oss_security.tar.gz root@<server-ip>:/tmp/
 
 # 服务器上部署
-ssh -i ~/Downloads/arknow-2.pem root@8.218.64.22 "
+ssh -i ~/Downloads/<your-key>.pem root@<server-ip> "
 cd /root/arknow_be && tar xzf /tmp/oss_security.tar.gz
 docker compose --env-file .env.production build --no-cache backend
 docker compose --env-file .env.production up -d backend
@@ -225,7 +225,7 @@ docker compose --env-file .env.production up -d backend
 
 ```bash
 # 需要一个 JWT token（先注册用户或直接检查后端日志）
-curl -s http://8.218.64.22/actuator/health
+curl -s http://<server-ip>/actuator/health
 # 预期: {"status":"UP"}
 ```
 
