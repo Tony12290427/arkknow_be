@@ -111,7 +111,7 @@ services:
     volumes:
       - ./canal/instance.properties.template:/home/admin/canal-server/conf/example/instance.properties.template
       - canal_logs:/home/admin/canal-server/logs
-    entrypoint: ["/bin/sh", "-c", "sed \"s/\\${MYSQL_ROOT_PASSWORD}/$MYSQL_ROOT_PASSWORD/g\" /home/admin/canal-server/conf/example/instance.properties.template > /home/admin/canal-server/conf/example/instance.properties && /home/admin/canal-server/bin/startup.sh; sleep 5; tail -f /home/admin/canal-server/logs/canal/canal.log 2>/dev/null; sleep infinity"]
+    entrypoint: ["/bin/sh", "-c", "sed \"s/\\${MYSQL_ROOT_PASSWORD}/$MYSQL_ROOT_PASSWORD/g\" /home/admin/canal-server/conf/example/instance.properties.template > /home/admin/canal-server/conf/example/instance.properties && sed -i 's/canal.serverMode = tcp/canal.serverMode = kafka/' /home/admin/canal-server/conf/canal.properties && sed -i 's/kafka.bootstrap.servers = 127.0.0.1:9092/kafka.bootstrap.servers = kafka:9092/' /home/admin/canal-server/conf/canal.properties && /home/admin/canal-server/bin/startup.sh; sleep 5; tail -f /home/admin/canal-server/logs/canal/canal.log 2>/dev/null; sleep infinity"]
     mem_limit: 512m
     depends_on:
       mysql:
