@@ -211,7 +211,7 @@
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
-| POST | `/presign` | 是 | 获取 OSS 预签名上传 URL |
+| POST | `/presign` | 是 | 获取 OSS 预签名上传 URL。支持类型白名单（image/jpeg, image/png, image/gif, image/webp, video/mp4, video/webm, video/mov）和文件大小限制（图片10MB, 视频100MB） |
 
 ### 搜索 (`/api/v1/search`)
 

@@ -211,7 +211,7 @@ A knowledge acquisition and sharing community platform built with Java 21 + Spri
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/presign` | Yes | Get OSS presigned upload URL |
+| POST | `/presign` | Yes | Get OSS presigned upload URL. Validates content-type (image/jpeg, image/png, image/gif, image/webp, video/mp4, video/webm, video/mov) and file size (10MB images, 100MB videos) |
 
 ### Search (`/api/v1/search`)
 
