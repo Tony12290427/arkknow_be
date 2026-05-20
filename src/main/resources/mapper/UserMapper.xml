@@ -23,8 +23,8 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (phone, email, password_hash, nickname, avatar, bio, tags_json, role)
-        VALUES (#{phone}, #{email}, #{passwordHash}, #{nickname}, #{avatar}, #{bio}, #{tagsJson}, #{role})
+        INSERT INTO users (phone, email, password_hash, google_id, nickname, avatar, bio, tags_json, role)
+        VALUES (#{phone}, #{email}, #{passwordHash}, #{googleId}, #{nickname}, #{avatar}, #{bio}, #{tagsJson}, #{role})
     </insert>
 
     <update id="updatePassword">

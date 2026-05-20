@@ -1,6 +1,7 @@
 package com.arknow.auth.verification;
 
 import com.arknow.auth.config.AuthProperties;
+import com.arknow.auth.model.IdentifierType;
 import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -11,6 +12,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * Orchestrates verification code generation, storage, rate limiting, and delivery.
@@ -35,33 +37,34 @@ public class VerificationService {
     private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final VerificationCodeStore codeStore;
-    private final CodeSender codeSender;
+    private final List<CodeSender> codeSenders;
     private final StringRedisTemplate stringRedisTemplate;
     private final AuthProperties properties;
 
-    public VerificationService(VerificationCodeStore codeStore, CodeSender codeSender,
+    public VerificationService(VerificationCodeStore codeStore, List<CodeSender> codeSenders,
                                 StringRedisTemplate stringRedisTemplate, AuthProperties properties) {
         this.codeStore = codeStore;
-        this.codeSender = codeSender;
+        this.codeSenders = codeSenders;
         this.stringRedisTemplate = stringRedisTemplate;
         this.properties = properties;
     }
 
     /**
-     * Generates and delivers a verification code for the given scene and identifier.
+     * Generates and delivers a verification code for the given scene, identifier, and type.
      * <p>
      * Execution order matters: rate limiting is checked first, then the code is persisted,
      * and only then is delivery attempted. This ensures "register first, send second" —
      * if delivery fails, the code is already stored and can be resent.
      *
-     * @param scene      the business context
-     * @param identifier normalized phone or email
+     * @param scene          the business context
+     * @param identifier     normalized phone or email
+     * @param identifierType the type of identifier, used to route to the correct sender
      * @return result with the identifier, scene, and expiry seconds
      * @throws BusinessException if rate limit or daily quota is exceeded
      */
-    public SendCodeResult sendCode(VerificationScene scene, String identifier) {
+    public SendCodeResult sendCode(VerificationScene scene, String identifier, IdentifierType identifierType) {
         // Fail-fast: reject before doing any work
-        if (scene == null || !StringUtils.hasText(identifier)) {
+        if (scene == null || !StringUtils.hasText(identifier) || identifierType == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "请提供正确的验证码发送参数");
         }
         AuthProperties.Verification cfg = properties.getVerification();
@@ -71,7 +74,11 @@ public class VerificationService {
 
         String code = generateNumericCode(cfg.getCodeLength());
         codeStore.saveCode(scene.name(), identifier, code, cfg.getTtl(), cfg.getMaxAttempts());
-        codeSender.sendCode(scene, identifier, code, (int) cfg.getTtl().toMinutes());
+        CodeSender sender = codeSenders.stream()
+                .filter(s -> s.supports(identifierType))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No CodeSender for " + identifierType));
+        sender.sendCode(scene, identifier, code, (int) cfg.getTtl().toMinutes());
         return new SendCodeResult(identifier, scene, (int) cfg.getTtl().toSeconds());
     }
 

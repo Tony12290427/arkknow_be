@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(32) NULL,
     email VARCHAR(128) NULL,
     password_hash VARCHAR(128) NULL,
+    google_id VARCHAR(128) NULL,
     nickname VARCHAR(64) NOT NULL,
     avatar TEXT NULL,
     bio VARCHAR(512) NULL,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
     PRIMARY KEY (id),
     UNIQUE KEY uk_users_phone (phone),
     UNIQUE KEY uk_users_email (email),
+    UNIQUE KEY uk_users_google_id (google_id),
     UNIQUE KEY uk_users_zg_id (zg_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

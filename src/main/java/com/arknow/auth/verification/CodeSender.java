@@ -1,12 +1,16 @@
 package com.arknow.auth.verification;
 
+import com.arknow.auth.model.IdentifierType;
+
 /**
  * Contract for delivering verification codes to users.
  * <p>
- * Decoupled from the business logic via the Strategy pattern: {@link LoggingCodeSender} logs
- * the code during development; a real SMS or email implementation can be swapped in later
- * without touching any consumer code.
+ * Implementations declare which {@link IdentifierType} they support via {@link #supports(IdentifierType)}.
+ * The {@link VerificationService} injects all implementations as a {@code List<CodeSender>}
+ * and routes to the matching one at runtime.
  */
 public interface CodeSender {
     void sendCode(VerificationScene scene, String identifier, String code, int expireMinutes);
+
+    boolean supports(IdentifierType type);
 }
