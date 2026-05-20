@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.arknow.user.mapper.UserChannelMapper">
+
+    <resultMap id="UserChannelResultMap" type="com.arknow.auth.model.UserChannel">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="channelType" column="channel_type"/>
+        <result property="channelValue" column="channel_value"/>
+        <result property="verifiedAt" column="verified_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findByTypeAndValue" resultMap="UserChannelResultMap">
+        SELECT id, user_id, channel_type, channel_value, verified_at, created_at
+        FROM user_channels
+        WHERE channel_type = #{type} AND channel_value = #{value}
+    </select>
+
+    <select id="findById" resultMap="UserChannelResultMap">
+        SELECT id, user_id, channel_type, channel_value, verified_at, created_at
+        FROM user_channels
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_channels (user_id, channel_type, channel_value, verified_at, created_at)
+        VALUES (#{userId}, #{channelType}, #{channelValue}, #{verifiedAt}, #{createdAt})
+    </insert>
+
+    <select id="findByUserId" resultMap="UserChannelResultMap">
+        SELECT id, user_id, channel_type, channel_value, verified_at, created_at
+        FROM user_channels
+        WHERE user_id = #{userId}
+    </select>
+
+    <delete id="delete">
+        DELETE FROM user_channels WHERE id = #{id}
+    </delete>
+
+    <select id="existsByTypeAndValue" resultType="boolean">
+        SELECT COUNT(1) > 0 FROM user_channels
+        WHERE channel_type = #{type} AND channel_value = #{value}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM user_channels WHERE user_id = #{userId}
+    </select>
+
+</mapper>

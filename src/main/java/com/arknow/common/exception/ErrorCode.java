@@ -32,5 +32,7 @@ public enum ErrorCode {
     /** Daily verification code quota exceeded for this identifier. */
     VERIFICATION_DAILY_LIMIT,
     /** Password does not meet the configured policy. */
-    PASSWORD_POLICY_VIOLATION
+    PASSWORD_POLICY_VIOLATION,
+    /** The channel is not bound to any account. */
+    CHANNEL_NOT_BOUND
 }

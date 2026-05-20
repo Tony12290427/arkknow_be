@@ -12,7 +12,10 @@ import com.arknow.auth.util.IdentifierValidator;
 import com.arknow.auth.verification.*;
 import com.arknow.common.exception.BusinessException;
 import com.arknow.common.exception.ErrorCode;
+import com.arknow.auth.model.UserChannel;
 import com.arknow.user.domain.User;
+import com.arknow.user.mapper.UserChannelMapper;
+import com.arknow.user.mapper.UserMapper;
 import com.arknow.user.service.UserService;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +40,8 @@ import java.util.*;
 @Service
 public class AuthService {
     private final UserService userService;
+    private final UserMapper userMapper;
+    private final UserChannelMapper userChannelMapper;
     private final VerificationService verificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -44,11 +49,15 @@ public class AuthService {
     private final LoginLogService loginLogService;
     private final AuthProperties authProperties;
 
-    public AuthService(UserService userService, VerificationService verificationService,
+    public AuthService(UserService userService, UserMapper userMapper,
+                       UserChannelMapper userChannelMapper,
+                       VerificationService verificationService,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
                        RefreshTokenStore refreshTokenStore, LoginLogService loginLogService,
                        AuthProperties authProperties) {
         this.userService = userService;
+        this.userMapper = userMapper;
+        this.userChannelMapper = userChannelMapper;
         this.verificationService = verificationService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -353,6 +362,91 @@ public class AuthService {
         TokenPair tokenPair = jwtService.issueTokenPair(user);
         storeRefreshToken(user.getId(), tokenPair);
         return tokenPair;
+    }
+
+    // ==================== channel login ====================
+
+    /**
+     * Authenticates via channel (PHONE/EMAIL/GOOGLE) binding.
+     * <p>
+     * Three scenarios:
+     * <ul>
+     *   <li>Channel not bound, no username/password — error: must register</li>
+     *   <li>Channel not bound, username+password provided — register a new user and bind</li>
+     *   <li>Channel already bound — login directly</li>
+     * </ul>
+     */
+    public TokenPair channelLogin(String type, String value, String username, String password) {
+        UserChannel channel = userChannelMapper.findByTypeAndValue(type, value);
+        if (channel == null) {
+            // Scenario 2: New user - must provide username+password to register
+            if (username == null || password == null) {
+                throw new BusinessException(ErrorCode.CHANNEL_NOT_BOUND, "该渠道未绑定账号，请设置用户名和密码完成注册");
+            }
+            // Check username uniqueness
+            if (userMapper.findByUsername(username).isPresent()) {
+                throw new BusinessException(ErrorCode.IDENTIFIER_EXISTS, "用户名已存在");
+            }
+            User user = new User();
+            user.setUsername(username);
+            user.setPasswordHash(passwordEncoder.encode(password));
+            user.setNickname(username);
+            user.setRole("USER");
+            userMapper.insert(user);
+            // Also set phone/email on the user record based on channel type
+            if ("PHONE".equals(type)) userMapper.updatePhone(user.getId(), value);
+            else if ("EMAIL".equals(type)) userMapper.updateEmail(user.getId(), value);
+            // Bind channel
+            channel = new UserChannel();
+            channel.setUserId(user.getId());
+            channel.setChannelType(type);
+            channel.setChannelValue(value);
+            channel.setVerifiedAt(Instant.now());
+            channel.setCreatedAt(Instant.now());
+            userChannelMapper.insert(channel);
+            return jwtService.issueTokenPair(user);
+        }
+        // Scenario 3: Already bound - login directly
+        User user = userMapper.findById(channel.getUserId()).orElse(null);
+        if (user == null || user.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND, "账号不存在");
+        }
+        return jwtService.issueTokenPair(user);
+    }
+
+    // ==================== channel binding ====================
+
+    /** Binds a channel (PHONE/EMAIL/GOOGLE) to the authenticated user. */
+    public void bindChannel(Long userId, String type, String value) {
+        // Check this channel is not already bound to another account
+        if (userChannelMapper.existsByTypeAndValue(type, value)) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_EXISTS, "该渠道已绑定其他账号");
+        }
+        UserChannel channel = new UserChannel();
+        channel.setUserId(userId);
+        channel.setChannelType(type);
+        channel.setChannelValue(value);
+        channel.setVerifiedAt(Instant.now());
+        channel.setCreatedAt(Instant.now());
+        userChannelMapper.insert(channel);
+    }
+
+    /** Unbinds a channel. Cannot unbind the last channel. */
+    public void unbindChannel(Long userId, Long channelId) {
+        // Cannot unbind last channel
+        if (userChannelMapper.countByUserId(userId) <= 1) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "不能解绑最后一个登录渠道");
+        }
+        UserChannel channel = userChannelMapper.findById(channelId);
+        if (channel == null || !channel.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "渠道不存在");
+        }
+        userChannelMapper.delete(channelId);
+    }
+
+    /** Lists all channels bound to the authenticated user. */
+    public List<UserChannel> listChannels(Long userId) {
+        return userChannelMapper.findByUserId(userId);
     }
 
     // ==================== helpers ====================

@@ -2,9 +2,11 @@ package com.arknow.auth.api;
 
 import com.arknow.auth.api.dto.*;
 import com.arknow.auth.model.ClientInfo;
+import com.arknow.auth.model.UserChannel;
 import com.arknow.auth.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -119,6 +121,37 @@ public class AuthController {
         long userId = Long.parseLong(jwt.getClaimAsString("uid"));
         authService.unbindEmail(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Channel login via PHONE/EMAIL/GOOGLE binding. */
+    @PostMapping("/login/channel")
+    public TokenResponse channelLogin(@RequestBody ChannelLoginRequest req) {
+        var tokens = authService.channelLogin(req.type(), req.value(), req.username(), req.password());
+        return new TokenResponse(tokens.accessToken(), tokens.accessTokenExpiresAt(),
+                tokens.refreshToken(), tokens.refreshTokenExpiresAt());
+    }
+
+    /** Binds a channel to the authenticated user's account. */
+    @PostMapping("/bind-channel")
+    public Map<String, Boolean> bindChannel(@RequestBody BindChannelRequest req, @AuthenticationPrincipal Jwt jwt) {
+        Long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        authService.bindChannel(userId, req.type(), req.value());
+        return Map.of("success", true);
+    }
+
+    /** Unbinds a channel from the authenticated user's account. */
+    @DeleteMapping("/channels/{id}")
+    public Map<String, Boolean> unbindChannel(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+        Long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        authService.unbindChannel(userId, id);
+        return Map.of("success", true);
+    }
+
+    /** Lists all channels bound to the authenticated user. */
+    @GetMapping("/channels")
+    public List<UserChannel> listChannels(@AuthenticationPrincipal Jwt jwt) {
+        Long userId = Long.parseLong(jwt.getClaimAsString("uid"));
+        return authService.listChannels(userId);
     }
 
     /** Soft-deletes the authenticated user's account. Revokes all refresh tokens, forcing logout on all devices. */

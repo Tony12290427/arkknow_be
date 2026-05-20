@@ -24,6 +24,27 @@ CREATE TABLE IF NOT EXISTS users (
     UNIQUE KEY uk_users_zg_id (zg_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE users ADD COLUMN username VARCHAR(64) UNIQUE AFTER id;
+
+CREATE TABLE IF NOT EXISTS user_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    channel_type ENUM('PHONE','EMAIL','GOOGLE') NOT NULL,
+    channel_value VARCHAR(256) NOT NULL,
+    verified_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE KEY uk_channel (channel_type, channel_value),
+    INDEX idx_user (user_id)
+);
+
+-- Backfill existing users: migrate phone/email/google_id to user_channels
+INSERT INTO user_channels (user_id, channel_type, channel_value, verified_at, created_at)
+SELECT id, 'PHONE', phone, NOW(), NOW() FROM users WHERE phone IS NOT NULL AND deleted_at IS NULL;
+INSERT INTO user_channels (user_id, channel_type, channel_value, verified_at, created_at)
+SELECT id, 'EMAIL', email, NOW(), NOW() FROM users WHERE email IS NOT NULL AND deleted_at IS NULL;
+INSERT INTO user_channels (user_id, channel_type, channel_value, verified_at, created_at)
+SELECT id, 'GOOGLE', google_id, NOW(), NOW() FROM users WHERE google_id IS NOT NULL AND deleted_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS login_logs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id BIGINT UNSIGNED NULL,

@@ -17,12 +17,14 @@ public interface UserMapper {
     Optional<User> findByEmail(@Param("email") String email);
     Optional<User> findByGoogleId(@Param("googleId") String googleId);
     Optional<User> findById(@Param("id") long id);
+    Optional<User> findByUsername(@Param("username") String username);
     void insert(User user);
     int updatePassword(User user);
     int updateProfile(User user);
     int updateAvatar(@Param("id") long id, @Param("avatar") String avatar);
     int updateTags(@Param("userId") long userId, @Param("tagsJson") String tagsJson);
     int updateEmail(@Param("id") long id, @Param("email") String email);
+    int updatePhone(@Param("id") long id, @Param("phone") String phone);
     int softDelete(@Param("id") long id);
 
     @Select("SELECT * FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}")

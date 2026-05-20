@@ -48,6 +48,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public Optional<User> findByUsername(String username) {
+        return userMapper.findByUsername(username);
+    }
+
+    @Override
     public void createUser(User user) {
         userMapper.insert(user);
     }
@@ -63,6 +68,14 @@ public class UserServiceImpl implements UserService {
     @Override
     public void updateEmail(long userId, String email) {
         int rows = userMapper.updateEmail(userId, email);
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND);
+        }
+    }
+
+    @Override
+    public void updatePhone(long userId, String phone) {
+        int rows = userMapper.updatePhone(userId, phone);
         if (rows == 0) {
             throw new BusinessException(ErrorCode.IDENTIFIER_NOT_FOUND);
         }
