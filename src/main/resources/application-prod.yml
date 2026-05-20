@@ -28,4 +28,4 @@ oss:
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   endpoint: ${OSS_ENDPOINT:oss-cn-hongkong.aliyuncs.com}
   bucket-name: ${OSS_BUCKET_NAME:arknow-hk}
-  cdn-domain: ${OSS_CDN_DOMAIN:https://cdn.arknow.online}
+  cdn-domain: ${OSS_CDN_DOMAIN:https://cdn.arkknow.com}
