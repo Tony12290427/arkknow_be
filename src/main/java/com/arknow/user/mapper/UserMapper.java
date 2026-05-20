@@ -15,6 +15,7 @@ public interface UserMapper {
     boolean existsByEmail(@Param("email") String email);
     Optional<User> findByPhone(@Param("phone") String phone);
     Optional<User> findByEmail(@Param("email") String email);
+    Optional<User> findByGoogleId(@Param("googleId") String googleId);
     Optional<User> findById(@Param("id") long id);
     void insert(User user);
     int updatePassword(User user);

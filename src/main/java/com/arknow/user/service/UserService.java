@@ -9,6 +9,7 @@ public interface UserService {
     boolean existsByEmail(String email);
     Optional<User> findByPhone(String phone);
     Optional<User> findByEmail(String email);
+    Optional<User> findByGoogleId(String googleId);
     Optional<User> findById(long id);
     void createUser(User user);
     void updatePassword(User user);

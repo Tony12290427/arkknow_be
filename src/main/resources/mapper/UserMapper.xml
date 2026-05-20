@@ -18,6 +18,10 @@
         SELECT * FROM users WHERE email = #{email} AND deleted_at IS NULL
     </select>
 
+    <select id="findByGoogleId" resultType="com.arknow.user.domain.User">
+        SELECT * FROM users WHERE google_id = #{googleId} AND deleted_at IS NULL
+    </select>
+
     <select id="findById" resultType="com.arknow.user.domain.User">
         SELECT * FROM users WHERE id = #{id} AND deleted_at IS NULL
     </select>

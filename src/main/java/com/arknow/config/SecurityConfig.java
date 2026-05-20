@@ -1,6 +1,8 @@
 package com.arknow.config;
 
+import com.arknow.auth.service.AuthService;
 import com.arknow.auth.token.JwtService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -30,9 +33,14 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final JwtService jwtService;
+    private final AuthService authService;
+    private final ObjectMapper objectMapper;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, AuthService authService,
+                          ObjectMapper objectMapper) {
         this.jwtService = jwtService;
+        this.authService = authService;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -63,6 +71,21 @@ public class SecurityConfig {
                     .decoder(jwtDecoder())
                     .jwtAuthenticationConverter(jwtAuthenticationConverter())
                 )
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .successHandler((request, response, authentication) -> {
+                    OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+                    String googleId = oauth2User.getAttribute("sub");
+                    String email = oauth2User.getAttribute("email");
+                    String name = oauth2User.getAttribute("name");
+
+                    var tokens = authService.handleGoogleLogin(googleId, email, name);
+                    response.setContentType("application/json");
+                    response.getWriter().write(objectMapper.writeValueAsString(java.util.Map.of(
+                        "accessToken", tokens.accessToken(),
+                        "refreshToken", tokens.refreshToken()
+                    )));
+                })
             );
         return http.build();
     }

@@ -38,6 +38,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public Optional<User> findByGoogleId(String googleId) {
+        return userMapper.findByGoogleId(googleId);
+    }
+
+    @Override
     public Optional<User> findById(long id) {
         return userMapper.findById(id);
     }

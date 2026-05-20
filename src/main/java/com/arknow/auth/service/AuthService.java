@@ -330,6 +330,31 @@ public class AuthService {
         refreshTokenStore.revokeAll(user.getId());
     }
 
+    // ==================== google login ====================
+
+    /**
+     * Handles Google OAuth2 login: looks up an existing user by Google ID, or creates
+     * a new user, then issues a JWT token pair.
+     */
+    public TokenPair handleGoogleLogin(String googleId, String email, String name) {
+        User user = userService.findByGoogleId(googleId).orElse(null);
+        if (user == null) {
+            user = User.builder()
+                    .googleId(googleId)
+                    .email(email)
+                    .nickname(name != null ? name : generateNickname())
+                    .avatar(null)
+                    .bio(null)
+                    .tagsJson("[]")
+                    .role("USER")
+                    .build();
+            userService.createUser(user);
+        }
+        TokenPair tokenPair = jwtService.issueTokenPair(user);
+        storeRefreshToken(user.getId(), tokenPair);
+        return tokenPair;
+    }
+
     // ==================== helpers ====================
 
     /** Maps verification statuses to appropriate business exceptions. */

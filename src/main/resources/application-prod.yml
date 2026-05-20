@@ -17,6 +17,15 @@ spring:
   elasticsearch:
     uris: ${SPRING_ELASTICSEARCH_URIS}
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
+
 management:
   endpoints:
     web:
@@ -37,4 +46,4 @@ oss:
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   endpoint: ${OSS_ENDPOINT:oss-cn-hongkong.aliyuncs.com}
   bucket-name: ${OSS_BUCKET_NAME:arknow}
-  cdn-domain: ${OSS_CDN_DOMAIN:https://cdn.arkknow.com}
+  cdn-domain: ${OSS_CDN_DOMAIN:https://cdn.arknow.com}
