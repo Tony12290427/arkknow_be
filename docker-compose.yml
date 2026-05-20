@@ -147,6 +147,10 @@ services:
       OSS_ENDPOINT: ${OSS_ENDPOINT:-oss-cn-hongkong.aliyuncs.com}
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME:-arkknow}
       OSS_CDN_DOMAIN: ${OSS_CDN_DOMAIN:-https://cdn.arkknow.com}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
     ports:
       - "8080:8080"
     mem_limit: 1024m

@@ -23,9 +23,18 @@ management:
       exposure:
         include: health,metrics
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
 oss:
   access-key-id: ${OSS_ACCESS_KEY_ID}
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   endpoint: ${OSS_ENDPOINT:oss-cn-hongkong.aliyuncs.com}
-  bucket-name: ${OSS_BUCKET_NAME:arknow-hk}
+  bucket-name: ${OSS_BUCKET_NAME:arknow}
   cdn-domain: ${OSS_CDN_DOMAIN:https://cdn.arkknow.com}
