@@ -144,6 +144,9 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
       OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-oss-cn-hongkong.aliyuncs.com}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME:-arkknow}
+      OSS_CDN_DOMAIN: ${OSS_CDN_DOMAIN:-https://cdn.arkknow.com}
     ports:
       - "8080:8080"
     mem_limit: 1024m
